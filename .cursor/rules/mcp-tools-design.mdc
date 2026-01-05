@@ -1,0 +1,131 @@
+---
+description: "MCP 工具设计原则和完整工具清单"
+---
+
+# MCP 工具设计指南
+
+## 设计原则
+
+1. **工具粒度适中** - 每个工具做一件事，但返回足够的上下文
+2. **返回结构化数据** - 使用 dict 返回，包含 `count`、`summary` 等元信息
+3. **清晰的文档字符串** - docstring 会显示给 AI，写清楚用途和返回格式
+4. **错误信息友好** - 返回有意义的错误信息，不要只抛异常
+
+## 完整工具清单
+
+### Blueprint 工具组 (6 个)
+
+| 工具 | 用途 | 调用方 |
+|------|------|--------|
+| `search_blueprints` | 按名称/类型搜索蓝图 | UE Plugin |
+| `get_blueprint_hierarchy` | 获取类继承链 | UE Plugin |
+| `get_blueprint_dependencies` | 获取蓝图依赖 | UE Plugin |
+| `get_blueprint_referencers` | 获取蓝图引用者 | UE Plugin |
+| `get_blueprint_graph` | 获取节点图 | UE Plugin |
+| `get_blueprint_details` | 获取综合信息 | UE Plugin |
+
+### Asset 工具组 (4 个)
+
+| 工具 | 用途 | 调用方 |
+|------|------|--------|
+| `search_assets` | 按名称/类型搜索资产 | UE Plugin |
+| `get_asset_references` | 获取资产引用 | UE Plugin |
+| `get_asset_referencers` | 获取资产引用者 | UE Plugin |
+| `get_asset_metadata` | 获取资产元数据 | UE Plugin |
+
+### C++ 分析工具组 (6 个)
+
+| 工具 | 用途 | 调用方 |
+|------|------|--------|
+| `analyze_cpp_class` | 分析类结构 | tree-sitter |
+| `get_cpp_class_hierarchy` | 获取继承层次 | tree-sitter |
+| `search_cpp_code` | 代码搜索 | tree-sitter |
+| `find_cpp_references` | 查找代码引用 | tree-sitter |
+| `detect_ue_patterns` | 检测 UE 模式 | 正则 + tree-sitter |
+| `get_cpp_blueprint_exposure` | 获取蓝图暴露 API | 正则 |
+
+### 跨域工具组 (2 个)
+
+| 工具 | 用途 | 调用方 |
+|------|------|--------|
+| `trace_reference_chain` | 追踪引用链 | UE Plugin |
+| `find_cpp_class_usage` | 查找 C++ 类使用 | UE Plugin |
+
+## 工具实现模板
+
+```python
+# src/ue5_analyzer/tools/xxx.py
+
+async def tool_name(
+    required_param: str,
+    optional_param: str = "default"
+) -> dict:
+    """一句话描述工具用途。
+    
+    详细说明（可选）。
+    
+    Args:
+        required_param: 参数说明
+        optional_param: 参数说明（带默认值）
+    
+    Returns:
+        Dictionary containing:
+        - key1: 说明
+        - key2: 说明
+        - count: 结果数量
+    
+    Example:
+        >>> result = await tool_name("value")
+        >>> result["key1"]
+        "expected"
+    """
+    # 获取后端客户端
+    client = get_client()  # 或 get_analyzer()
+    
+    # 调用后端
+    result = await client.get("/endpoint", {"param": required_param})
+    
+    # 返回结构化结果
+    return {
+        "key1": result.get("data"),
+        "count": len(result.get("items", [])),
+    }
+```
+
+## 典型 Agent 调用流程
+
+### 场景：分析 GAS Ability
+
+```
+1. search_blueprints("GA_Hero_Dash", "GameplayAbility")
+   → 找到蓝图路径
+
+2. get_blueprint_hierarchy("/Game/.../GA_Hero_Dash")
+   → 获取继承链，发现父类 UGameplayAbility
+
+3. get_blueprint_dependencies("/Game/.../GA_Hero_Dash")
+   → 获取依赖的 C++ 类和其他蓝图
+
+4. analyze_cpp_class("UGameplayAbility")
+   → 分析 C++ 父类结构
+
+5. get_blueprint_graph("/Game/.../GA_Hero_Dash", "EventGraph")
+   → 获取执行逻辑
+
+6. Agent 综合以上信息，输出分析报告
+```
+
+### 场景：追踪资产引用
+
+```
+1. search_assets("SK_Mannequin", "Skeleton")
+   → 找到资产路径
+
+2. get_asset_referencers("/Game/.../SK_Mannequin")
+   → 获取直接引用者
+
+3. trace_reference_chain("/Game/.../SK_Mannequin", depth=2)
+   → 获取完整引用树
+
+4. Agent 输出引用关系报告
+```

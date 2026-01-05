@@ -1,0 +1,81 @@
+---
+globs: "*.py"
+---
+
+# Python 开发规范
+
+## 基本规则
+
+- Python 3.11+ 语法
+- 使用 type hints
+- 异步优先 (async/await)
+- 使用 dataclass 定义数据结构
+
+## 代码风格
+
+- 行宽限制: 100 字符
+- 使用 ruff 进行 lint
+- 遵循 PEP 8
+
+## 项目特定规范
+
+### MCP 工具定义
+
+工具函数放在 `src/ue5_analyzer/tools/` 目录，按领域分文件：
+- `blueprint.py` - 蓝图分析
+- `asset.py` - 资产分析
+- `cpp.py` - C++ 分析
+- `cross_domain.py` - 跨域查询
+
+工具函数规范：
+```python
+async def tool_name(param1: str, param2: int = 0) -> dict:
+    """工具描述 (会显示给 AI)。
+    
+    Args:
+        param1: 参数1说明
+        param2: 参数2说明
+    
+    Returns:
+        Dictionary containing:
+        - key1: 说明
+        - key2: 说明
+    """
+```
+
+### 与 UE5 插件通信
+
+使用 `ue_client.http_client.UEPluginClient`:
+```python
+from ..ue_client import get_client
+
+async def my_tool():
+    client = get_client()
+    return await client.get("/endpoint", {"param": "value"})
+```
+
+### C++ 分析器
+
+使用 `cpp_analyzer.analyzer.CppAnalyzer`:
+```python
+from ..cpp_analyzer import get_analyzer
+
+async def my_tool():
+    analyzer = get_analyzer()
+    return await analyzer.analyze_class("AMyClass")
+```
+
+## 依赖管理
+
+使用 uv:
+```bash
+uv add package_name      # 添加依赖
+uv sync                   # 安装依赖
+uv run command           # 运行命令
+```
+
+## 测试
+
+- 测试文件放在 `tests/` 目录
+- 使用 pytest + pytest-asyncio
+- 异步测试使用 `@pytest.mark.asyncio`

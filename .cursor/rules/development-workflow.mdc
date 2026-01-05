@@ -1,0 +1,120 @@
+---
+description: "开发流程和优先级指南"
+---
+
+# 开发流程指南
+
+## 当前开发阶段
+
+参考 [PROJECT_VISION.md](mdc:docs/PROJECT_VISION.md) 第十节的开发优先级。
+
+### P1 - C++ 源码分析器 (当前)
+
+完善 tree-sitter 基础的 C++ 分析：
+- 类解析 (`analyze_class`)
+- 继承层次 (`find_class_hierarchy`)
+- UE 模式检测 (`detect_ue_patterns`)
+
+关键文件:
+- [analyzer.py](mdc:ue5-project-analyzer/src/ue5_analyzer/cpp_analyzer/analyzer.py)
+- [patterns.py](mdc:ue5-project-analyzer/src/ue5_analyzer/cpp_analyzer/patterns.py)
+- [queries.py](mdc:ue5-project-analyzer/src/ue5_analyzer/cpp_analyzer/queries.py)
+
+### P2 - UE5 插件核心
+
+实现 Blueprint/Asset HTTP API：
+- Blueprint 内省 (hierarchy, dependencies, graph)
+- Asset 引用查询 (references, referencers)
+
+关键文件:
+- [UE5ProjectAnalyzer.cpp](mdc:ue5-project-analyzer/unreal-plugin/Source/UE5ProjectAnalyzer/Private/UE5ProjectAnalyzer.cpp)
+
+### P3 - 整合验证
+
+使用 Lyra 项目测试完整工作流。
+
+## 开发命令
+
+### Python MCP Server
+
+```bash
+cd ue5-project-analyzer
+
+# 安装依赖
+uv sync
+
+# 运行测试
+uv run pytest
+
+# 运行 MCP Server
+uv run ue5-analyzer
+
+# Lint
+uv run ruff check .
+uv run ruff format .
+```
+
+### UE5 插件
+
+1. 复制 `unreal-plugin/` 到 UE 项目的 `Plugins/` 目录
+2. 重命名为 `UE5ProjectAnalyzer/`
+3. 用 UE 编辑器打开项目，编译插件
+4. 启用插件
+
+## 测试指南
+
+### 单元测试
+
+```bash
+uv run pytest tests/test_cpp_analyzer.py -v
+```
+
+### 集成测试 (需要 UE 插件运行)
+
+```bash
+# 确保 UE 编辑器已启动且插件已启用
+# 确保 HTTP API 在 localhost:8080 可用
+
+uv run pytest tests/test_integration.py -v
+```
+
+### Lyra 项目验证
+
+1. 下载 Lyra 示例项目
+2. 安装 UE5ProjectAnalyzer 插件
+3. 配置 MCP Server 连接
+4. 测试典型查询:
+   - "分析 B_Hero_ShooterMannequin 的继承链"
+   - "GA_Hero_Dash 的触发路径是什么"
+   - "SK_Mannequin 被哪些资产引用"
+
+## Git 工作流
+
+- `main` 分支保持稳定
+- 功能开发使用 feature 分支
+- PR 需要通过测试
+
+## 调试技巧
+
+### MCP Server 调试
+
+```python
+# 在 server.py 中添加日志
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+### UE5 插件调试
+
+```cpp
+// 在代码中添加断点日志
+UE_LOG(LogTemp, Warning, TEXT("DEBUG: variable = %s"), *Variable);
+```
+
+### 查看 HTTP 请求
+
+```bash
+# 直接测试 UE 插件 API
+curl http://localhost:8080/health
+curl http://localhost:8080/blueprint/search?pattern=BP_Player
+```

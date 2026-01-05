@@ -1,0 +1,66 @@
+---
+alwaysApply: true
+---
+
+# UE5 Project Analyzer - 项目概览
+
+## 项目愿景
+
+让 AI 能够完整追踪 UE5 项目中任意一条引用链，从入口到实现，跨越 Blueprint ↔ C++ ↔ Asset 边界。
+
+**核心场景**：分析 Lyra 等大型 UE5 项目，追踪如 GAS Ability 从触发到执行的完整链路。
+
+## 架构
+
+```
+AI Agent
+    │ MCP Protocol
+    ▼
+MCP Server (Python/FastMCP)
+    │ - C++ 源码分析 (tree-sitter)
+    │ - 工具路由
+    │ HTTP
+    ▼
+UE5 Plugin (Editor 内运行)
+    ├─ C++ HTTP Server (:8080)
+    │   - Blueprint 内省 API
+    │   - Asset 引用查询 API
+    └─ Python Bridge (自动拉起)
+        - Unreal Python 补充 API
+```
+
+## 目录结构
+
+```
+ue5-project-analyzer/           # 主项目目录
+├── src/ue5_analyzer/           # MCP Server (Python)
+│   ├── server.py               # 入口
+│   ├── tools/                  # MCP 工具定义
+│   ├── cpp_analyzer/           # C++ 源码分析 (tree-sitter)
+│   └── ue_client/              # UE 插件 HTTP 客户端
+│
+├── unreal-plugin/              # UE5 C++ 插件
+│   ├── Source/                 # C++ 代码
+│   └── Content/Python/         # Python Bridge
+│
+└── tests/                      # 测试
+
+docs/                           # 项目文档
+reference/                      # 参考项目 (不修改)
+```
+
+## 关键文件
+
+- [PROJECT_VISION.md](mdc:docs/PROJECT_VISION.md) - 详细项目愿景和技术规划
+- [server.py](mdc:ue5-project-analyzer/src/ue5_analyzer/server.py) - MCP Server 入口
+- [UE5ProjectAnalyzer.cpp](mdc:ue5-project-analyzer/unreal-plugin/Source/UE5ProjectAnalyzer/Private/UE5ProjectAnalyzer.cpp) - UE5 插件入口
+
+## 技术栈
+
+| 组件 | 技术选型 |
+|------|----------|
+| Python 包管理 | uv |
+| MCP 框架 | FastMCP |
+| C++ 解析 | tree-sitter + tree-sitter-cpp |
+| UE 通信 | HTTP (自研插件) |
+| UE 版本 | 5.3+ |
