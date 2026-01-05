@@ -137,9 +137,11 @@ namespace
 					continue;
 				}
 
-				// Very lightweight filter: match against any superclass name.
-				bool bMatch = false;
-				for (UClass* Cls = BP->GeneratedClass ? BP->GeneratedClass->GetSuperClass() : BP->ParentClass; Cls != nullptr; Cls = Cls->GetSuperClass())
+			// Very lightweight filter: match against any superclass name.
+			bool bMatch = false;
+			// 显式获取 UClass* 避免 TSubclassOf 和 UClass* 的三元运算符歧义
+			UClass* StartClass = BP->GeneratedClass ? BP->GeneratedClass->GetSuperClass() : BP->ParentClass.Get();
+			for (UClass* Cls = StartClass; Cls != nullptr; Cls = Cls->GetSuperClass())
 				{
 					if (Cls->GetName().Equals(ClassFilter, ESearchCase::IgnoreCase) || Cls->GetName().Contains(ClassFilter))
 					{
@@ -224,7 +226,7 @@ namespace
 
 		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath);
 		TArray<FName> Deps;
-		GetAssetRegistry().GetDependencies(FName(*PackagePath), Deps, EAssetRegistryDependencyType::All);
+		GetAssetRegistry().GetDependencies(FName(*PackagePath), Deps, UE::AssetRegistry::EDependencyCategory::All);
 
 		TArray<TSharedPtr<FJsonValue>> Dependencies;
 		Dependencies.Reserve(Deps.Num());
@@ -254,7 +256,7 @@ namespace
 
 		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath);
 		TArray<FName> Refs;
-		GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, EAssetRegistryDependencyType::All);
+		GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, UE::AssetRegistry::EDependencyCategory::All);
 
 		TArray<TSharedPtr<FJsonValue>> Referencers;
 		Referencers.Reserve(Refs.Num());
@@ -390,12 +392,9 @@ namespace
 			return true;
 		}
 
-		// Variables
-		TArray<FBPVariableDescription> VarDescs;
-		FBlueprintEditorUtils::GetNewVariables(Blueprint, VarDescs);
-
+		// Variables - 直接使用 Blueprint->NewVariables (UE5 API)
 		TArray<TSharedPtr<FJsonValue>> Variables;
-		for (const FBPVariableDescription& Var : VarDescs)
+		for (const FBPVariableDescription& Var : Blueprint->NewVariables)
 		{
 			TSharedRef<FJsonObject> VarObj = MakeShared<FJsonObject>();
 			VarObj->SetStringField(TEXT("name"), Var.VarName.ToString());
@@ -429,7 +428,8 @@ namespace
 				TSharedRef<FJsonObject> CompObj = MakeShared<FJsonObject>();
 				CompObj->SetStringField(TEXT("name"), Node->GetVariableName().ToString());
 				CompObj->SetStringField(TEXT("class"), Node->ComponentClass ? Node->ComponentClass->GetName() : TEXT(""));
-				CompObj->SetStringField(TEXT("attach_to"), Node->GetParent() ? Node->GetParent()->GetVariableName().ToString() : TEXT(""));
+				// UE5: 使用 ParentComponentOrVariableName 替代已移除的 GetParent()
+				CompObj->SetStringField(TEXT("attach_to"), Node->ParentComponentOrVariableName.ToString());
 				Components.Add(MakeShared<FJsonValueObject>(CompObj));
 			}
 		}
@@ -494,7 +494,8 @@ namespace
 		if (!TypeFilter.IsEmpty())
 		{
 			// Try to interpret filter as class name ("SkeletalMesh", "Blueprint", ...)
-			UClass* AssetClass = FindObject<UClass>(ANY_PACKAGE, *TypeFilter);
+			// UE5: ANY_PACKAGE 已废弃，使用 FindFirstObject 替代
+			UClass* AssetClass = FindFirstObject<UClass>(*TypeFilter, EFindFirstObjectOptions::NativeFirst);
 			if (AssetClass)
 			{
 				GetAssetRegistry().GetAssetsByClass(AssetClass->GetClassPathName(), Assets, true);
@@ -554,7 +555,7 @@ namespace
 
 		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
 		TArray<FName> Deps;
-		GetAssetRegistry().GetDependencies(FName(*PackagePath), Deps, EAssetRegistryDependencyType::All);
+		GetAssetRegistry().GetDependencies(FName(*PackagePath), Deps, UE::AssetRegistry::EDependencyCategory::All);
 
 		TArray<TSharedPtr<FJsonValue>> References;
 		for (const FName& Dep : Deps)
@@ -582,7 +583,7 @@ namespace
 
 		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
 		TArray<FName> Refs;
-		GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, EAssetRegistryDependencyType::All);
+		GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, UE::AssetRegistry::EDependencyCategory::All);
 
 		TArray<TSharedPtr<FJsonValue>> Referencers;
 		for (const FName& Ref : Refs)
@@ -687,12 +688,12 @@ namespace
 		TArray<FName> NextPackages;
 		if (Direction.Equals(TEXT("references"), ESearchCase::IgnoreCase) || Direction.Equals(TEXT("both"), ESearchCase::IgnoreCase))
 		{
-			GetAssetRegistry().GetDependencies(FName(*PackagePath), NextPackages, EAssetRegistryDependencyType::All);
+			GetAssetRegistry().GetDependencies(FName(*PackagePath), NextPackages, UE::AssetRegistry::EDependencyCategory::All);
 		}
 		if (Direction.Equals(TEXT("referencers"), ESearchCase::IgnoreCase) || Direction.Equals(TEXT("both"), ESearchCase::IgnoreCase))
 		{
 			TArray<FName> Refs;
-			GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, EAssetRegistryDependencyType::All);
+			GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, UE::AssetRegistry::EDependencyCategory::All);
 			NextPackages.Append(Refs);
 		}
 

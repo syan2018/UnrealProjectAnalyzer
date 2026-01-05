@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
+#include "Containers/Ticker.h"
 
 class FHttpServerModule;
 class IHttpRouter;
@@ -43,6 +44,9 @@ private:
     /** Register HTTP routes */
     void RegisterRoutes(TSharedPtr<IHttpRouter> Router);
 
+    /** Tick callback - 用于读取 MCP Server 子进程输出 */
+    bool Tick(float DeltaTime);
+
 private:
     // =====================================================================
     // Editor integration: Settings + Toolbar
@@ -74,4 +78,7 @@ private:
 
     /** External MCP Server process manager (uv run ...) */
     class FUnrealProjectAnalyzerMcpLauncher* McpLauncher = nullptr;
+
+    /** Ticker delegate handle - 用于定期读取子进程输出 */
+    FTSTicker::FDelegateHandle TickDelegateHandle;
 };

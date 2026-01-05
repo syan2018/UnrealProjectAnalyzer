@@ -35,9 +35,13 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Launcher")
 	FString UvExecutable = TEXT("uv");
 
-	/** MCP Server 的工作目录（默认：插件目录下 `Python/`） */
+	/** MCP Server 的工作目录（默认：插件根目录，pyproject.toml 所在位置） */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Launcher")
 	FString McpServerDirectory = TEXT("");
+
+	/** 是否将 MCP Server 的输出打印到 UE Output Log */
+	UPROPERTY(EditAnywhere, Config, Category="MCP|Launcher")
+	bool bCaptureServerOutput = true;
 
 	/** MCP transport：stdio/http/sse */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport")
@@ -47,17 +51,21 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport!=EUnrealAnalyzerMcpTransport::Stdio"))
 	FString McpHost = TEXT("127.0.0.1");
 
-	/** HTTP/SSE 监听端口 */
+	/** HTTP/SSE 监听端口（默认使用不常用端口避免冲突） */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport!=EUnrealAnalyzerMcpTransport::Stdio", ClampMin="1", ClampMax="65535"))
-	int32 McpPort = 8000;
+	int32 McpPort = 19840;
 
 	/** HTTP MCP path（例如 /mcp） */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport==EUnrealAnalyzerMcpTransport::Http"))
 	FString McpPath = TEXT("/mcp");
 
-	/** 传给 unreal-analyzer 的 C++ 源码路径（默认：<Project>/Source） */
+	/** 传给 unreal-analyzer 的项目 C++ 源码路径（默认：<Project>/Source） */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer")
 	FString CppSourcePath = TEXT("");
+
+	/** Unreal Engine 源码路径（默认：自动检测引擎安装目录/Source）；用于分析引擎类 */
+	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer")
+	FString UnrealEngineSourcePath = TEXT("");
 
 	/** UE 插件 HTTP API（MCP Server 会调用回 Editor 内 API） */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer")

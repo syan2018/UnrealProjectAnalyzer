@@ -14,6 +14,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "ToolMenus.h"
 #include "LevelEditor.h"
+#include "Styling/AppStyle.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
@@ -39,6 +40,12 @@ void FUnrealProjectAnalyzerModule::StartupModule()
     RegisterSettings();
     RegisterMenus();
 
+    // 注册 Ticker 用于读取 MCP Server 子进程输出（每 0.1 秒一次）
+    TickDelegateHandle = FTSTicker::GetCoreTicker().AddTicker(
+        FTickerDelegate::CreateRaw(this, &FUnrealProjectAnalyzerModule::Tick),
+        0.1f
+    );
+
     // Optional auto-start (only for HTTP/SSE transports; stdio is typically Cursor-managed)
     const UUnrealProjectAnalyzerSettings* Settings = GetDefault<UUnrealProjectAnalyzerSettings>();
     if (Settings && Settings->bAutoStartMcpServer && Settings->Transport != EUnrealAnalyzerMcpTransport::Stdio)
@@ -52,6 +59,13 @@ void FUnrealProjectAnalyzerModule::StartupModule()
 void FUnrealProjectAnalyzerModule::ShutdownModule()
 {
     UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Shutting down module..."));
+
+    // 取消注册 Ticker
+    if (TickDelegateHandle.IsValid())
+    {
+        FTSTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+        TickDelegateHandle.Reset();
+    }
 
     UnregisterMenus();
     UnregisterSettings();
@@ -160,11 +174,11 @@ void FUnrealProjectAnalyzerModule::RegisterRoutes(TSharedPtr<IHttpRouter> Router
         return;
     }
     
-    // Health check endpoint
+    // Health check endpoint - 使用 FHttpRequestHandler::CreateLambda 创建处理器
     Router->BindRoute(
         FHttpPath(TEXT("/health")),
         EHttpServerRequestVerbs::VERB_GET,
-        [](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+        FHttpRequestHandler::CreateLambda([](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
         {
             TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
                 TEXT("{\"status\": \"ok\", \"service\": \"UnrealProjectAnalyzer\"}"),
@@ -172,7 +186,7 @@ void FUnrealProjectAnalyzerModule::RegisterRoutes(TSharedPtr<IHttpRouter> Router
             );
             OnComplete(MoveTemp(Response));
             return true;
-        }
+        })
     );
 
     // Register analyzer API routes.
@@ -218,7 +232,8 @@ void FUnrealProjectAnalyzerModule::UnregisterSettings()
 
 void FUnrealProjectAnalyzerModule::RegisterMenus()
 {
-    if (!UToolMenus::IsToolMenusAvailable())
+    // UE5: IsToolMenusAvailable() 已移除，使用 TryGet() 替代
+    if (!UToolMenus::TryGet())
     {
         return;
     }
@@ -227,64 +242,70 @@ void FUnrealProjectAnalyzerModule::RegisterMenus()
     {
         FToolMenuOwnerScoped OwnerScoped(this);
 
-        UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.LevelEditorToolBar");
-        if (!Menu)
+        // ====================================================================
+        // 方案1: 添加到 Tools 菜单（最可靠，推荐）
+        // 路径：Tools → Unreal Project Analyzer → ...
+        // ====================================================================
+        UToolMenu* ToolsMenu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu.Tools");
+        if (ToolsMenu)
         {
-            return;
+            FToolMenuSection& Section = ToolsMenu->FindOrAddSection("UnrealProjectAnalyzer");
+            Section.Label = LOCTEXT("UnrealProjectAnalyzer_MenuLabel", "Unreal Project Analyzer");
+
+            // Start MCP
+            Section.AddMenuEntry(
+                "UnrealProjectAnalyzer.StartMcp",
+                LOCTEXT("StartMcp_Label", "Start MCP Server"),
+                LOCTEXT("StartMcp_Tooltip", "Start MCP Server via uv (HTTP/SSE transport recommended)."),
+                FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Play"),
+                FUIAction(
+                    FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::StartMcpServer),
+                    FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStartMcpServer)
+                )
+            );
+
+            // Stop MCP
+            Section.AddMenuEntry(
+                "UnrealProjectAnalyzer.StopMcp",
+                LOCTEXT("StopMcp_Label", "Stop MCP Server"),
+                LOCTEXT("StopMcp_Tooltip", "Stop MCP Server process."),
+                FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Stop"),
+                FUIAction(
+                    FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::StopMcpServer),
+                    FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStopMcpServer)
+                )
+            );
+
+            // Copy URL
+            Section.AddMenuEntry(
+                "UnrealProjectAnalyzer.CopyMcpUrl",
+                LOCTEXT("CopyMcpUrl_Label", "Copy MCP URL"),
+                LOCTEXT("CopyMcpUrl_Tooltip", "Copy MCP URL to clipboard (HTTP/SSE only)."),
+                FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Clipboard"),
+                FUIAction(
+                    FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CopyMcpUrlToClipboard),
+                    FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStopMcpServer)
+                )
+            );
+
+            Section.AddSeparator("SettingsSeparator");
+
+            // Settings
+            Section.AddMenuEntry(
+                "UnrealProjectAnalyzer.OpenSettings",
+                LOCTEXT("OpenSettings_Label", "MCP Settings..."),
+                LOCTEXT("OpenSettings_Tooltip", "Open Unreal Project Analyzer settings."),
+                FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Settings"),
+                FUIAction(FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::OpenPluginSettings))
+            );
         }
-
-        FToolMenuSection& Section = Menu->FindOrAddSection("UnrealProjectAnalyzer");
-
-        // Start
-        Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UnrealProjectAnalyzer.StartMcp",
-            FUIAction(
-                FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::StartMcpServer),
-                FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStartMcpServer)
-            ),
-            LOCTEXT("StartMcp_Label", "Start MCP"),
-            LOCTEXT("StartMcp_Tooltip", "Start MCP Server via uv (HTTP/SSE transport recommended for quick connect)."),
-            FSlateIcon()
-        ));
-
-        // Stop
-        Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UnrealProjectAnalyzer.StopMcp",
-            FUIAction(
-                FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::StopMcpServer),
-                FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStopMcpServer)
-            ),
-            LOCTEXT("StopMcp_Label", "Stop MCP"),
-            LOCTEXT("StopMcp_Tooltip", "Stop MCP Server process."),
-            FSlateIcon()
-        ));
-
-        // Copy URL
-        Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UnrealProjectAnalyzer.CopyMcpUrl",
-            FUIAction(
-                FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CopyMcpUrlToClipboard),
-                FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStopMcpServer) // running => can copy
-            ),
-            LOCTEXT("CopyMcpUrl_Label", "Copy MCP URL"),
-            LOCTEXT("CopyMcpUrl_Tooltip", "Copy MCP URL to clipboard (HTTP/SSE only)."),
-            FSlateIcon()
-        ));
-
-        // Settings
-        Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UnrealProjectAnalyzer.OpenSettings",
-            FUIAction(FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::OpenPluginSettings)),
-            LOCTEXT("OpenSettings_Label", "MCP Settings"),
-            LOCTEXT("OpenSettings_Tooltip", "Open Unreal Project Analyzer settings."),
-            FSlateIcon()
-        ));
     }));
 }
 
 void FUnrealProjectAnalyzerModule::UnregisterMenus()
 {
-    if (UToolMenus::IsToolMenusAvailable())
+    // UE5: IsToolMenusAvailable() 已移除，使用 TryGet() 替代
+    if (UToolMenus::TryGet())
     {
         UToolMenus::UnregisterOwner(this);
     }
@@ -381,6 +402,16 @@ void FUnrealProjectAnalyzerModule::OpenPluginSettings() const
     {
         SettingsModule->ShowViewer("Project", "Plugins", "UnrealProjectAnalyzer");
     }
+}
+
+bool FUnrealProjectAnalyzerModule::Tick(float DeltaTime)
+{
+    // 调用 McpLauncher 的 Tick 来读取子进程输出
+    if (McpLauncher)
+    {
+        McpLauncher->Tick();
+    }
+    return true;  // 返回 true 表示继续 tick
 }
 
 #undef LOCTEXT_NAMESPACE
