@@ -1,5 +1,5 @@
 """
-MCP Tools for UE5 Project Analyzer.
+MCP Tools for Unreal Project Analyzer.
 
 Modules:
 - blueprint: Blueprint introspection and analysis

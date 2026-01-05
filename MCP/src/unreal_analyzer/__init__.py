@@ -1,5 +1,5 @@
 """
-UE5 Project Analyzer - MCP Server for analyzing Unreal Engine 5 projects.
+Unreal Project Analyzer - MCP Server for analyzing Unreal Engine 5 projects.
 
 Provides tools for:
 - Blueprint introspection and dependency analysis

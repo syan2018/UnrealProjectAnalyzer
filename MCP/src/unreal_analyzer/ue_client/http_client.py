@@ -1,5 +1,5 @@
 """
-HTTP Client for UE5 Plugin API.
+HTTP Client for Unreal Plugin API.
 """
 
 import httpx
@@ -9,13 +9,13 @@ from ..config import get_config
 
 
 class UEPluginClient:
-    """HTTP client for communicating with UE5 Plugin."""
+    """HTTP client for communicating with Unreal Plugin."""
     
     def __init__(self, base_url: str | None = None, timeout: float = 30.0):
         """Initialize the client.
         
         Args:
-            base_url: Base URL of the UE5 plugin API (default from config)
+            base_url: Base URL of the Unreal plugin API (default from config)
             timeout: Request timeout in seconds
         """
         self.base_url = base_url or get_config().ue_plugin_url
@@ -106,7 +106,7 @@ class UEPluginClient:
 
 
 class UEPluginError(Exception):
-    """Error from UE5 Plugin API."""
+    """Error from Unreal Plugin API."""
     pass
 
 

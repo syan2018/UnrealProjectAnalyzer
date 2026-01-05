@@ -1,10 +1,10 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
 using UnrealBuildTool;
 
-public class UE5ProjectAnalyzer : ModuleRules
+public class UnrealProjectAnalyzer : ModuleRules
 {
-    public UE5ProjectAnalyzer(ReadOnlyTargetRules Target) : base(Target)
+    public UnrealProjectAnalyzer(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         

@@ -16,18 +16,18 @@ description: "开发流程和优先级指南"
 - UE 模式检测 (`detect_ue_patterns`)
 
 关键文件:
-- [analyzer.py](mdc:Mcp/src/ue5_analyzer/cpp_analyzer/analyzer.py)
-- [patterns.py](mdc:Mcp/src/ue5_analyzer/cpp_analyzer/patterns.py)
-- [queries.py](mdc:Mcp/src/ue5_analyzer/cpp_analyzer/queries.py)
+- [analyzer.py](mdc:Mcp/src/unreal_analyzer/cpp_analyzer/analyzer.py)
+- [patterns.py](mdc:Mcp/src/unreal_analyzer/cpp_analyzer/patterns.py)
+- [queries.py](mdc:Mcp/src/unreal_analyzer/cpp_analyzer/queries.py)
 
-### P2 - UE5 插件核心
+### P2 - Unreal 插件核心
 
 实现 Blueprint/Asset HTTP API：
 - Blueprint 内省 (hierarchy, dependencies, graph)
 - Asset 引用查询 (references, referencers)
 
 关键文件:
-- [UE5ProjectAnalyzer.cpp](mdc:Source/UE5ProjectAnalyzer/Private/UE5ProjectAnalyzer.cpp)
+- [UnrealProjectAnalyzer.cpp](mdc:Source/UnrealProjectAnalyzer/Private/UnrealProjectAnalyzer.cpp)
 
 ### P3 - 整合验证
 
@@ -38,7 +38,7 @@ description: "开发流程和优先级指南"
 ### Python MCP Server
 
 ```bash
-cd ue5-project-analyzer
+cd unreal-project-analyzer
 
 # 安装依赖
 uv sync
@@ -47,17 +47,17 @@ uv sync
 uv run pytest
 
 # 运行 MCP Server
-uv run ue5-analyzer
+uv run unreal-analyzer
 
 # Lint
 uv run ruff check .
 uv run ruff format .
 ```
 
-### UE5 插件
+### Unreal 插件
 
 1. 复制本仓库目录到 UE 项目的 `Plugins/` 目录
-2. 确保目录名为 `UE5ProjectAnalyzer/`（与 `UE5ProjectAnalyzer.uplugin` 一致）
+2. 确保目录名为 `UnrealProjectAnalyzer/`（与 `UnrealProjectAnalyzer.uplugin` 一致）
 3. 用 UE 编辑器打开项目，编译插件
 4. 启用插件
 
@@ -81,7 +81,7 @@ uv run pytest Mcp/tests/test_integration.py -v
 ### Lyra 项目验证
 
 1. 下载 Lyra 示例项目
-2. 安装 UE5ProjectAnalyzer 插件
+2. 安装 UnrealProjectAnalyzer 插件
 3. 配置 MCP Server 连接
 4. 测试典型查询:
    - "分析 B_Hero_ShooterMannequin 的继承链"
@@ -104,7 +104,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-### UE5 插件调试
+### Unreal 插件调试
 
 ```cpp
 // 在代码中添加断点日志

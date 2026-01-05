@@ -1,8 +1,8 @@
-# UE5 Project Analyzer
+# Unreal Project Analyzer
 
 MCP Server for analyzing Unreal Engine 5 projects - Blueprint, Asset, and C++ source code.
 
-> **Goal**: Let AI understand the complete picture of a UE5 project by tracing reference chains across Blueprint ↔ C++ ↔ Asset boundaries.
+> **Goal**: Let AI understand the complete picture of a Unreal project by tracing reference chains across Blueprint ↔ C++ ↔ Asset boundaries.
 
 ## Features
 
@@ -28,7 +28,7 @@ MCP Server for analyzing Unreal Engine 5 projects - Blueprint, Asset, and C++ so
                                  │ HTTP
                                  ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                  UE5ProjectAnalyzer Plugin                        │
+│                  UnrealProjectAnalyzer Plugin                        │
 │  ┌─────────────────────────┐  ┌────────────────────────────────┐ │
 │  │   C++ HTTP Server       │  │   Python Bridge (auto-start)   │ │
 │  │   :8080                 │  │   (Unreal Python API)          │ │
@@ -53,7 +53,7 @@ cd UnrealMCP
 uv sync
 
 # Run the MCP server
-uv run ue5-analyzer
+uv run unreal-analyzer
 ```
 
 ### Run with CLI Args (recommended)
@@ -61,7 +61,7 @@ uv run ue5-analyzer
 CLI 参数会覆盖环境变量（单次运行更方便）：
 
 ```bash
-uv run ue5-analyzer -- \
+uv run unreal-analyzer -- \
   --cpp-source-path "/path/to/LyraStarterGame/Source" \
   --ue-plugin-host "localhost" \
   --ue-plugin-port 8080
@@ -69,22 +69,22 @@ uv run ue5-analyzer -- \
 
 ### Run as HTTP MCP Server (optional)
 
-默认 `ue5-analyzer` 以 **stdio** 方式运行（适配 Cursor 的 MCP 集成）。
+默认 `unreal-analyzer` 以 **stdio** 方式运行（适配 Cursor 的 MCP 集成）。
 如果你希望把 MCP Server 作为一个本机 HTTP 服务暴露（便于“快捷连接”或调试），可以使用：
 
 ```bash
-uv run ue5-analyzer -- \
+uv run unreal-analyzer -- \
   --transport http \
   --mcp-host 127.0.0.1 \
   --mcp-port 8000 \
   --mcp-path /mcp
 ```
 
-### UE5 Plugin Setup
+### Unreal Plugin Setup
 
-1. Copy this repository folder to your UE5 project's `Plugins/` directory
-2. Ensure the folder name is `UE5ProjectAnalyzer/` (matches `UE5ProjectAnalyzer.uplugin`)
-3. Enable the plugin in UE5 Editor (Edit → Plugins → UE5 Project Analyzer)
+1. Copy this repository folder to your Unreal project's `Plugins/` directory
+2. Ensure the folder name is `UnrealProjectAnalyzer/` (matches `UnrealProjectAnalyzer.uplugin`)
+3. Enable the plugin in Unreal Editor (Edit → Plugins → Unreal Project Analyzer)
 4. Restart the Editor
 
 ## Configuration
@@ -98,7 +98,7 @@ CPP_SOURCE_PATH=/path/to/YourProject/Source
 # Optional: Unreal Engine install (for engine source analysis)
 UNREAL_ENGINE_PATH=/path/to/UE_5.3
 
-# UE5 Plugin API location
+# Unreal Plugin API location
 UE_PLUGIN_HOST=localhost
 UE_PLUGIN_PORT=8080
 ```
@@ -110,13 +110,13 @@ Add to your MCP settings:
 ```json
 {
   "mcpServers": {
-    "ue5-project-analyzer": {
+    "unreal-project-analyzer": {
       "command": "uv",
       "args": [
         "run",
         "--directory",
         "/path/to/UnrealMCP",
-        "ue5-analyzer",
+        "unreal-analyzer",
         "--",
         "--cpp-source-path",
         "/path/to/YourProject/Source"

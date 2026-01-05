@@ -2,17 +2,17 @@
 globs: "*.cpp,*.h,*.cs"
 ---
 
-# UE5 插件开发规范
+# Unreal 插件开发规范
 
 ## 插件结构
 
 ```
-UE5ProjectAnalyzer/ (插件根目录)
-├── UE5ProjectAnalyzer.uplugin         # 插件描述文件
-├── Source/UE5ProjectAnalyzer/
+UnrealProjectAnalyzer/ (插件根目录)
+├── UnrealProjectAnalyzer.uplugin         # 插件描述文件
+├── Source/UnrealProjectAnalyzer/
 │   ├── Public/                        # 头文件
 │   ├── Private/                       # 实现文件
-│   └── UE5ProjectAnalyzer.Build.cs
+│   └── UnrealProjectAnalyzer.Build.cs
 └── Content/Python/                    # Python Bridge 脚本
 ```
 
@@ -20,7 +20,7 @@ UE5ProjectAnalyzer/ (插件根目录)
 
 | 文件 | 职责 |
 |------|------|
-| `UE5ProjectAnalyzer.cpp/h` | 模块入口，HTTP Server 初始化 |
+| `UnrealProjectAnalyzer.cpp/h` | 模块入口，HTTP Server 初始化 |
 | `BlueprintAnalyzer.cpp/h` | Blueprint 分析逻辑 |
 | `AssetAnalyzer.cpp/h` | Asset 引用分析逻辑 |
 | `HttpRoutes.cpp/h` | HTTP 路由注册 |
@@ -59,15 +59,15 @@ GET /analysis/cpp-class-usage?class=xxx
 ### 命名
 
 - 类: `F` 前缀 (struct), `U` 前缀 (UObject), `A` 前缀 (Actor)
-- 模块类: `FUE5ProjectAnalyzerModule`
+- 模块类: `FUnrealProjectAnalyzerModule`
 - 布尔值: `b` 前缀 (`bIsEnabled`)
 
 ### 日志
 
 ```cpp
-UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: Message"));
-UE_LOG(LogTemp, Warning, TEXT("UE5ProjectAnalyzer: Warning"));
-UE_LOG(LogTemp, Error, TEXT("UE5ProjectAnalyzer: Error"));
+UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Message"));
+UE_LOG(LogTemp, Warning, TEXT("UnrealProjectAnalyzer: Warning"));
+UE_LOG(LogTemp, Error, TEXT("UnrealProjectAnalyzer: Error"));
 ```
 
 ### HTTP 路由注册

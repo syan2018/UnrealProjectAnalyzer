@@ -1,6 +1,6 @@
-# UE5 Project Analyzer MCP - 项目愿景与目标
+# Unreal Project Analyzer MCP - 项目愿景与目标
 
-> **一句话目标**：让 AI 能够完整追踪 UE5 项目中任意一条引用链，从入口到实现，跨越 Blueprint / C++ / Asset 边界。
+> **一句话目标**：让 AI 能够完整追踪 Unreal 项目中任意一条引用链，从入口到实现，跨越 Blueprint / C++ / Asset 边界。
 
 ---
 
@@ -104,18 +104,18 @@ SK_Mannequin (Skeleton Asset)
 
 | 能力 | 描述 | 实现方案 |
 |------|------|----------|
-| **Blueprint 内省** | 获取蓝图的变量、函数、组件、图表节点 | UE5 Editor HTTP API (ue5-mcp 已有) |
-| **Blueprint 继承分析** | 获取蓝图的类层次结构 | UE5 Editor HTTP API (新增) |
-| **Blueprint 依赖分析** | 获取蓝图引用的 C++/其他蓝图/资产 | UE5 Editor HTTP API (新增) |
+| **Blueprint 内省** | 获取蓝图的变量、函数、组件、图表节点 | Unreal Editor HTTP API (unreal-mcp 已有) |
+| **Blueprint 继承分析** | 获取蓝图的类层次结构 | Unreal Editor HTTP API (新增) |
+| **Blueprint 依赖分析** | 获取蓝图引用的 C++/其他蓝图/资产 | Unreal Editor HTTP API (新增) |
 | **C++ 代码分析** | 分析 C++ 类的结构和蓝图暴露 | **unreal-analyzer-mcp** (直接集成) |
-| **资产引用查询** | 查询资产的引用和被引用关系 | UE5 AssetRegistry API (新增) |
-| **资产搜索** | 按名称/类型搜索资产 | UE5 AssetRegistry API (新增) |
+| **资产引用查询** | 查询资产的引用和被引用关系 | Unreal AssetRegistry API (新增) |
+| **资产搜索** | 按名称/类型搜索资产 | Unreal AssetRegistry API (新增) |
 
 ### 2.2 能力来源划分
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      UE5 Project Analyzer MCP                            │
+│                      Unreal Project Analyzer MCP                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │  ┌─────────────────────────────┐    ┌─────────────────────────────┐    │
@@ -167,8 +167,8 @@ SK_Mannequin (Skeleton Asset)
                                       │ HTTP
                                       ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                        UE5ProjectAnalyzer Plugin                              │
-│                            (单一 UE5 插件)                                    │
+│                        UnrealProjectAnalyzer Plugin                              │
+│                            (单一 Unreal 插件)                                    │
 │  ┌────────────────────────────────┐  ┌─────────────────────────────────────┐ │
 │  │     C++ HTTP Server            │  │     Python Bridge (自动拉起)        │ │
 │  │     :8080                      │  │     (Unreal Python API)             │ │
@@ -187,7 +187,7 @@ SK_Mannequin (Skeleton Asset)
 | 组件 | 位置 | 职责 |
 |------|------|------|
 | **MCP Server** | 外部 Python 进程 | 统一 MCP 入口 + C++ 源码分析 (tree-sitter) |
-| **UE5 Plugin** | Editor 内 | Blueprint/Asset 运行时查询 + Python Bridge |
+| **Unreal Plugin** | Editor 内 | Blueprint/Asset 运行时查询 + Python Bridge |
 
 **关键决策**：
 - ✅ 将 unreal-analyzer-mcp (TypeScript) 迁移到 Python，自主维护
@@ -197,12 +197,12 @@ SK_Mannequin (Skeleton Asset)
 ### 3.3 项目结构
 
 ```
-ue5-project-analyzer/
+unreal-project-analyzer/
 │
 ├── README.md
 ├── pyproject.toml                    # uv 项目配置
 │
-├── Mcp/src/ue5_analyzer/             # MCP Server (外部运行)
+├── Mcp/src/unreal_analyzer/             # MCP Server (外部运行)
 │   ├── __init__.py
 │   ├── server.py                     # MCP 入口
 │   │
@@ -218,17 +218,17 @@ ue5-project-analyzer/
 │   │   ├── patterns.py               # UE 模式检测 (UPROPERTY 等)
 │   │   └── queries.py                # tree-sitter 查询定义
 │   │
-│   ├── ue_client/                    # UE5 插件通信
+│   ├── ue_client/                    # Unreal 插件通信
 │   │   ├── __init__.py
 │   │   └── http_client.py            # HTTP 客户端
 │   │
 │   └── config.py
 │
-├── UE5ProjectAnalyzer.uplugin        # 插件描述文件（仓库根即插件根）
-├── Source/UE5ProjectAnalyzer/        # UE5 C++ 插件代码
+├── UnrealProjectAnalyzer.uplugin        # 插件描述文件（仓库根即插件根）
+├── Source/UnrealProjectAnalyzer/        # Unreal C++ 插件代码
 │   ├── Public/
 │   ├── Private/
-│   └── UE5ProjectAnalyzer.Build.cs
+│   └── UnrealProjectAnalyzer.Build.cs
 │
 └── Content/Python/                   # Python Bridge (随插件分发)
     └── bridge_server.py              # 被 C++ 自动拉起
@@ -292,7 +292,7 @@ ue5-project-analyzer/
 
 ---
 
-## 五、UE5 插件需要暴露的 API
+## 五、Unreal 插件需要暴露的 API
 
 ### 5.1 Blueprint API
 
@@ -418,7 +418,7 @@ SK_Mannequin (骨骼资产) 的引用情况：
 ### 7.2 核心功能
 
 ```python
-# Mcp/src/ue5_analyzer/cpp_analyzer/analyzer.py
+# Mcp/src/unreal_analyzer/cpp_analyzer/analyzer.py
 
 class CppAnalyzer:
     """C++ 源码分析器 - 基于 tree-sitter"""
@@ -490,7 +490,7 @@ MVP 完成后，Agent 应该能回答：
 P0 - 基础设施 (Week 1)
 ├── 项目骨架 (pyproject.toml, 目录结构)
 ├── MCP Server 入口 (FastMCP)
-├── UE5 C++ 插件框架 (HTTP Server 骨架)
+├── Unreal C++ 插件框架 (HTTP Server 骨架)
 └── 基础通信验证
 
 P1 - C++ 源码分析器 (Week 2)
@@ -501,7 +501,7 @@ P1 - C++ 源码分析器 (Week 2)
 │   └── detect_ue_patterns
 └── MCP 工具绑定
 
-P2 - UE5 插件核心 (Week 3)
+P2 - Unreal 插件核心 (Week 3)
 ├── Blueprint 内省 API
 │   ├── /blueprint/search
 │   ├── /blueprint/hierarchy?bp_path=...

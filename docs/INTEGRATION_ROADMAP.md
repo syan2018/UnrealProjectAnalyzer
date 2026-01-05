@@ -1,4 +1,4 @@
-# UE5 MCP 与 Unreal Analyzer 整合工程推进文档
+# Unreal MCP 与 Unreal Analyzer 整合工程推进文档
 
 ## 文档版本
 - **版本**: 1.0.0
@@ -13,14 +13,14 @@
 ### 1.1 核心愿景
 构建一个统一的 MCP 工具链，使 AI 代理能够：
 1. **双向理解** Blueprint ↔ C++ 的引用关系
-2. **全局视角** 理解 UE5 项目的完整架构
+2. **全局视角** 理解 Unreal 项目的完整架构
 3. **智能操作** 基于理解进行精准的蓝图/代码修改
 
 ### 1.2 解决的核心问题
 
 | 当前痛点 | 目标状态 |
 |---------|---------|
-| `ue5-mcp` 只能操作蓝图，不知道蓝图引用了哪些 C++ | AI 能获取蓝图的完整 C++ 依赖图 |
+| `unreal-mcp` 只能操作蓝图，不知道蓝图引用了哪些 C++ | AI 能获取蓝图的完整 C++ 依赖图 |
 | `unreal-analyzer-mcp` 只分析 C++，不知道被哪些蓝图使用 | AI 能反向追溯 C++ 的蓝图使用情况 |
 | 两个工具孤立运行，无法形成完整项目理解 | 统一的项目上下文，跨域引用分析 |
 
@@ -28,11 +28,11 @@
 
 ## 二、技术可行性调研
 
-### 2.1 UE5 Blueprint API 分析
+### 2.1 Unreal Blueprint API 分析
 
 #### 2.1.1 关键 API 支持 ✅
 
-根据 Context7 文档调研，UE5 提供了充足的 API 支持：
+根据 Context7 文档调研，Unreal 提供了充足的 API 支持：
 
 | API | 用途 | 头文件 |
 |-----|------|--------|
@@ -60,7 +60,7 @@ PinType.PinSubCategoryObject=BlueprintGeneratedClass'"/Game/Bp_HealthComponent.B
 
 #### 2.1.3 可行性结论
 
-✅ **完全可行** - UE5 Editor API 提供了获取蓝图→C++ 引用的所有必要接口
+✅ **完全可行** - Unreal Editor API 提供了获取蓝图→C++ 引用的所有必要接口
 
 ---
 
@@ -114,9 +114,9 @@ captures = query_cursor.captures(tree.root_node)
 #### 2.3.1 当前架构
 
 ```python
-# ue5-mcp/Python/MCP/mcp_server.py
+# unreal-mcp/Python/MCP/mcp_server.py
 from mcp.server.fastmcp import FastMCP
-mcp = FastMCP("UE5BlueprintMCP", port=PORT)
+mcp = FastMCP("UnrealBlueprintMCP", port=PORT)
 
 @mcp.tool()
 def get_blueprint_functions(bp_path: str) -> str:
@@ -161,14 +161,14 @@ FastMCP 支持：
 │  ▼                             ▼                                  ▼   │
 │ ┌────────────────┐    ┌────────────────┐    ┌─────────────────────┐  │
 │ │ Blueprint Ops  │    │ C++ Analyzer   │    │ Project Context     │  │
-│ │ (现有 ue5-mcp) │    │ (tree-sitter)  │    │ Manager (新增)      │  │
+│ │ (现有 unreal-mcp) │    │ (tree-sitter)  │    │ Manager (新增)      │  │
 │ └───────┬────────┘    └───────┬────────┘    └─────────┬───────────┘  │
 │         │                     │                       │              │
 └─────────┼─────────────────────┼───────────────────────┼──────────────┘
           │                     │                       │
           ▼                     ▼                       ▼
 ┌─────────────────┐    ┌────────────────┐    ┌─────────────────────────┐
-│  UE5 Editor     │    │ C++ Source     │    │ Project File System     │
+│  Unreal Editor     │    │ C++ Source     │    │ Project File System     │
 │  HTTP API       │    │ Files          │    │ (.uproject, .uasset)    │
 │  (C++ Plugin)   │    │ (.h, .cpp)     │    │                         │
 └─────────────────┘    └────────────────┘    └─────────────────────────┘
@@ -182,7 +182,7 @@ FastMCP 支持：
             ▼
 ┌──────────────────────────────────────┐
 │  1. 调用 get_blueprint_cpp_deps      │
-│     - 请求 UE5 Editor API            │
+│     - 请求 Unreal Editor API            │
 │     - 解析节点中的 C++ 类引用         │
 └──────────────────────────────────────┘
             │
@@ -222,12 +222,12 @@ FastMCP 支持：
 ```
 Phase 1 (1-2周)          Phase 2 (2-3周)          Phase 3 (1-2周)
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│ UE5 插件扩展    │ ──▶  │ MCP 工具扩展    │ ──▶  │ 整合与优化      │
+│ Unreal 插件扩展    │ ──▶  │ MCP 工具扩展    │ ──▶  │ 整合与优化      │
 │ C++ API 实现    │      │ Python 侧实现   │      │ 文档与测试      │
 └─────────────────┘      └─────────────────┘      └─────────────────┘
 ```
 
-### 4.2 Phase 1: UE5 Editor 插件扩展
+### 4.2 Phase 1: Unreal Editor 插件扩展
 
 #### 4.2.1 新增 HTTP API 端点
 
@@ -242,7 +242,7 @@ Phase 1 (1-2周)          Phase 2 (2-3周)          Phase 3 (1-2周)
 #### 4.2.2 C++ 实现文件结构
 
 ```
-Source/UE5_MCP/
+Source/Unreal_MCP/
 ├── API/
 │   ├── Route/
 │   │   ├── BP.cpp/h              (现有)
@@ -258,7 +258,7 @@ Source/UE5_MCP/
 #### 4.2.3 核心实现代码框架
 
 ```cpp
-// Source/UE5_MCP/Core/DependencyAnalyzer.h
+// Source/Unreal_MCP/Core/DependencyAnalyzer.h
 #pragma once
 
 #include "CoreMinimal.h"
@@ -306,7 +306,7 @@ private:
 ```
 
 ```cpp
-// Source/UE5_MCP/Core/DependencyAnalyzer.cpp
+// Source/Unreal_MCP/Core/DependencyAnalyzer.cpp
 #include "DependencyAnalyzer.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_Variable.h"
@@ -468,7 +468,7 @@ TArray<FCppDependency> FUECP_DependencyAnalyzer::GetComponentDependencies(UBluep
 #### 4.2.4 HTTP 路由实现
 
 ```cpp
-// Source/UE5_MCP/API/Route/Analysis.cpp
+// Source/Unreal_MCP/API/Route/Analysis.cpp
 #include "Analysis.h"
 #include "Core/DependencyAnalyzer.h"
 #include "JsonObjectConverter.h"
@@ -515,7 +515,7 @@ void FAnalysisRoute::RegisterRoutes(FHttpRouter& Router)
 #### 4.3.1 新增 Python 工具
 
 ```python
-# ue5-mcp/Python/MCP/mcp_server.py (扩展)
+# unreal-mcp/Python/MCP/mcp_server.py (扩展)
 
 # ==================== Bridge Layer Tools ====================
 
@@ -614,7 +614,7 @@ def get_project_blueprint_summary(project_content_path: str) -> str:
 #### 4.3.2 C++ 分析模块（Python tree-sitter）
 
 ```python
-# ue5-mcp/Python/MCP/cpp_analyzer.py (新文件)
+# unreal-mcp/Python/MCP/cpp_analyzer.py (新文件)
 
 from tree_sitter import Language, Parser, Query, QueryCursor
 import tree_sitter_cpp
@@ -867,7 +867,7 @@ def get_cpp_analyzer() -> CppBlueprintAnalyzer:
 #### 4.3.3 MCP Server 集成
 
 ```python
-# ue5-mcp/Python/MCP/mcp_server.py (继续扩展)
+# unreal-mcp/Python/MCP/mcp_server.py (继续扩展)
 
 from cpp_analyzer import get_cpp_analyzer, CppBlueprintAnalyzer
 import json
@@ -978,7 +978,7 @@ def analyze_cpp_to_blueprint_usage(cpp_class: str, project_content_path: str) ->
 #### 4.4.1 项目上下文管理器
 
 ```python
-# ue5-mcp/Python/MCP/project_context.py (新文件)
+# unreal-mcp/Python/MCP/project_context.py (新文件)
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Optional
@@ -1064,7 +1064,7 @@ def get_project_context() -> Optional[ProjectContext]:
 #### 4.4.2 高级分析工具
 
 ```python
-# ue5-mcp/Python/MCP/mcp_server.py (高级工具)
+# unreal-mcp/Python/MCP/mcp_server.py (高级工具)
 
 from project_context import init_project_context, get_project_context
 
@@ -1078,7 +1078,7 @@ def initialize_project_analysis(project_path: str) -> str:
     这是使用高级分析功能前的必要步骤。
     
     参数:
-        project_path: UE5 项目根目录（包含 .uproject 文件）
+        project_path: Unreal 项目根目录（包含 .uproject 文件）
     """
     ctx = init_project_context(project_path)
     
@@ -1164,10 +1164,10 @@ tree-sitter>=0.23.0
 tree-sitter-cpp>=0.23.0
 ```
 
-### 5.2 UE5 插件依赖
+### 5.2 Unreal 插件依赖
 
 ```cs
-// UE5_MCP.Build.cs (更新)
+// Unreal_MCP.Build.cs (更新)
 PublicDependencyModuleNames.AddRange(new string[] {
     "Core",
     "CoreUObject",
@@ -1275,7 +1275,7 @@ def test_cpp_to_blueprint_reverse_lookup():
 | 风险 | 影响 | 可能性 | 缓解措施 |
 |------|------|--------|----------|
 | tree-sitter C++ 解析不完整 | 中 | 中 | 结合正则表达式作为补充 |
-| UE5 版本 API 差异 | 高 | 低 | 条件编译 + 版本检测 |
+| Unreal 版本 API 差异 | 高 | 低 | 条件编译 + 版本检测 |
 | 大型项目性能问题 | 中 | 中 | 增量分析 + 缓存机制 |
 | 蓝图编译状态影响 | 中 | 中 | 检测编译状态，必要时先编译 |
 
@@ -1285,7 +1285,7 @@ def test_cpp_to_blueprint_reverse_lookup():
 
 | 阶段 | 时间 | 交付物 | 验收标准 |
 |------|------|--------|----------|
-| Phase 1 | Week 1-2 | UE5 插件扩展 | 新 API 端点可调用 |
+| Phase 1 | Week 1-2 | Unreal 插件扩展 | 新 API 端点可调用 |
 | Phase 2 | Week 3-4 | MCP 工具扩展 | 工具在 Cursor 中可用 |
 | Phase 3 | Week 5-6 | 整合优化 | 端到端测试通过 |
 
@@ -1323,16 +1323,16 @@ def test_cpp_to_blueprint_reverse_lookup():
 ### 11.2 推荐的两种运行模式
 
 - **模式 A（Cursor 常用）**：stdio
-  - Cursor 通过 MCP 配置直接启动：`uv run ue5-analyzer`
+  - Cursor 通过 MCP 配置直接启动：`uv run unreal-analyzer`
   - 优点：最简单、最稳定；无需 UE 侧管理进程
 
 - **模式 B（快捷连接/调试/其他客户端）**：HTTP
-  - UE Editor 按钮启动：`uv run ue5-analyzer -- --transport http --mcp-host 127.0.0.1 --mcp-port 8000 --mcp-path /mcp`
+  - UE Editor 按钮启动：`uv run unreal-analyzer -- --transport http --mcp-host 127.0.0.1 --mcp-port 8000 --mcp-path /mcp`
   - 优点：本机常驻服务，便于复用；可在 UE 内显示 URL / 一键复制
 
 ### 11.3 UE 插件侧实现要点（后续任务）
 
-- **Settings**：提供 `UUE5ProjectAnalyzerSettings`
+- **Settings**：提供 `UUnrealProjectAnalyzerSettings`
   - `CppSourcePath` 自动填充为 `<Project>/Source`
   - `McpTransport`（stdio/http/sse）、`McpHost`、`McpPort`、`McpPath`
   - `UvExecutable`（可选，默认 `uv`）
@@ -1355,7 +1355,7 @@ def test_cpp_to_blueprint_reverse_lookup():
 
 ### B. 相关代码库
 
-- ue5-mcp: `ue5-mcp/`
+- unreal-mcp: `unreal-mcp/`
 - unreal-analyzer-mcp: `unreal-analyzer-mcp/`
 
 ### C. 术语表

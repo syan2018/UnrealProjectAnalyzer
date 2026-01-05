@@ -1,6 +1,6 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 //
-// HTTP route registration for UE5ProjectAnalyzer.
+// HTTP route registration for UnrealProjectAnalyzer.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 
 class IHttpRouter;
 
-namespace UE5AnalyzerHttpRoutes
+namespace UnrealAnalyzerHttpRoutes
 {
 	/** Bind all HTTP routes to the provided router. */
 	void Register(TSharedPtr<IHttpRouter> Router);

@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from ue5_analyzer.cpp_analyzer.patterns import detect_ue_pattern, parse_specifiers
+from unreal_analyzer.cpp_analyzer.patterns import detect_ue_pattern, parse_specifiers
 
 
 class TestPatternDetection:
@@ -70,7 +70,7 @@ class TestCppAnalyzer:
     @pytest.mark.asyncio
     async def test_search_code_no_paths(self):
         """Test search_code raises error when no paths configured."""
-        from ue5_analyzer.cpp_analyzer import get_analyzer
+        from unreal_analyzer.cpp_analyzer import get_analyzer
         
         analyzer = get_analyzer()
         result = await analyzer.search_code("test")

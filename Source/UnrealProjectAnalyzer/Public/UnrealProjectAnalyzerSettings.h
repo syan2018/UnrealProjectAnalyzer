@@ -1,13 +1,13 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
-#include "UE5ProjectAnalyzerSettings.generated.h"
+#include "UnrealProjectAnalyzerSettings.generated.h"
 
 UENUM()
-enum class EUE5AnalyzerMcpTransport : uint8
+enum class EUnrealAnalyzerMcpTransport : uint8
 {
 	Stdio UMETA(DisplayName = "stdio (Cursor 默认)"),
 	Http UMETA(DisplayName = "http (Streamable HTTP)"),
@@ -15,14 +15,14 @@ enum class EUE5AnalyzerMcpTransport : uint8
 };
 
 /**
- * UE5ProjectAnalyzer settings (Editor per-project).
+ * UnrealProjectAnalyzer settings (Editor per-project).
  *
  * 目标：
  * - 允许用户在 UE 内配置 “uv + MCP Server” 启动参数
  * - 不要求修改 UE 自带 Python 环境：MCP Server 始终作为外部进程运行
  */
 UCLASS(Config=EditorPerProjectUserSettings, DefaultConfig)
-class UUE5ProjectAnalyzerSettings : public UObject
+class UUnrealProjectAnalyzerSettings : public UObject
 {
 	GENERATED_BODY()
 
@@ -41,21 +41,21 @@ public:
 
 	/** MCP transport：stdio/http/sse */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport")
-	EUE5AnalyzerMcpTransport Transport = EUE5AnalyzerMcpTransport::Http;
+	EUnrealAnalyzerMcpTransport Transport = EUnrealAnalyzerMcpTransport::Http;
 
 	/** HTTP/SSE 监听 Host（安全默认：127.0.0.1） */
-	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport!=EUE5AnalyzerMcpTransport::Stdio"))
+	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport!=EUnrealAnalyzerMcpTransport::Stdio"))
 	FString McpHost = TEXT("127.0.0.1");
 
 	/** HTTP/SSE 监听端口 */
-	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport!=EUE5AnalyzerMcpTransport::Stdio", ClampMin="1", ClampMax="65535"))
+	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport!=EUnrealAnalyzerMcpTransport::Stdio", ClampMin="1", ClampMax="65535"))
 	int32 McpPort = 8000;
 
 	/** HTTP MCP path（例如 /mcp） */
-	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport==EUE5AnalyzerMcpTransport::Http"))
+	UPROPERTY(EditAnywhere, Config, Category="MCP|Transport", meta=(EditCondition="Transport==EUnrealAnalyzerMcpTransport::Http"))
 	FString McpPath = TEXT("/mcp");
 
-	/** 传给 ue5-analyzer 的 C++ 源码路径（默认：<Project>/Source） */
+	/** 传给 unreal-analyzer 的 C++ 源码路径（默认：<Project>/Source） */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer")
 	FString CppSourcePath = TEXT("");
 
@@ -66,7 +66,7 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer", meta=(ClampMin="1", ClampMax="65535"))
 	int32 UePluginPort = 8080;
 
-	/** 额外传给 ue5-analyzer 的参数（高级） */
+	/** 额外传给 unreal-analyzer 的参数（高级） */
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Advanced")
 	FString ExtraArgs = TEXT("");
 };

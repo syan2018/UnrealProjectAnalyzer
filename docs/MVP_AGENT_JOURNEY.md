@@ -1,4 +1,4 @@
-# UE5 MCP 最小原型设计：基于 Agent Journey 分析
+# Unreal MCP 最小原型设计：基于 Agent Journey 分析
 
 ## 背景与动机
 
@@ -408,7 +408,7 @@ def analyze_cpp_blueprint_exposure(file_path: str) -> str:
     
     返回示例:
     {
-        "file": "D:/UE5/Lyra/Source/LyraGame/Character/LyraCharacter.h",
+        "file": "D:/Unreal/Lyra/Source/LyraGame/Character/LyraCharacter.h",
         "classes": [
             {
                 "name": "ALyraCharacter",
@@ -461,7 +461,7 @@ def analyze_cpp_blueprint_exposure(file_path: str) -> str:
 **Python 实现（tree-sitter）**：
 
 ```python
-# ue5-mcp/Python/MCP/cpp_analyzer.py
+# unreal-mcp/Python/MCP/cpp_analyzer.py
 
 import re
 from dataclasses import dataclass, asdict
@@ -687,14 +687,14 @@ def analyze_cpp_file(file_path: str) -> Dict:
 │                              │              │              │   │
 │                              ▼              ▼              ▼   │
 │                      ┌───────────┐  ┌───────────┐  ┌─────────┐ │
-│                      │ UE5 HTTP  │  │ cpp_      │  │ 已有    │ │
+│                      │ Unreal HTTP  │  │ cpp_      │  │ 已有    │ │
 │                      │ API (新增)│  │ analyzer  │  │ 工具    │ │
 │                      │           │  │ (Python)  │  │         │ │
 │                      └─────┬─────┘  └─────┬─────┘  └────┬────┘ │
 │                            │              │             │      │
 │                            ▼              ▼             ▼      │
 │                      ┌───────────┐  ┌───────────┐  ┌─────────┐ │
-│                      │ UE5       │  │ C++ 源码  │  │ UE5     │ │
+│                      │ Unreal       │  │ C++ 源码  │  │ Unreal     │ │
 │                      │ Editor    │  │ 文件系统  │  │ Editor  │ │
 │                      │ (运行中)  │  │           │  │         │ │
 │                      └───────────┘  └───────────┘  └─────────┘ │
@@ -705,12 +705,12 @@ def analyze_cpp_file(file_path: str) -> Dict:
 ### 4.1 新增文件清单
 
 ```
-ue5-mcp/
+unreal-mcp/
 ├── Python/MCP/
 │   ├── mcp_server.py          (修改: 添加 4 个新工具)
 │   └── cpp_analyzer.py        (新增: C++ 分析器)
 │
-└── Source/UE5_MCP/
+└── Source/Unreal_MCP/
     ├── API/Route/
     │   └── Analysis.cpp/h     (新增: 3 个 HTTP 端点)
     └── Core/
@@ -755,7 +755,7 @@ C++ 文件分析响应时间 < 1s
 ```
 Week 1:
 ├── Day 1-2: cpp_analyzer.py (Python 纯实现，可独立测试)
-├── Day 3-4: UE5 插件 DependencyAnalyzer (C++ 核心逻辑)
+├── Day 3-4: Unreal 插件 DependencyAnalyzer (C++ 核心逻辑)
 └── Day 5:   HTTP 路由绑定
 
 Week 2:

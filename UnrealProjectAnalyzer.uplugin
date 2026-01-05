@@ -2,10 +2,10 @@
     "FileVersion": 3,
     "Version": 1,
     "VersionName": "0.1.0",
-    "FriendlyName": "UE5 Project Analyzer",
+    "FriendlyName": "Unreal Project Analyzer",
     "Description": "HTTP API server for Blueprint, Asset, and C++ analysis. Enables AI-powered project understanding via MCP.",
     "Category": "Editor",
-    "CreatedBy": "UE5 Project Analyzer Team",
+    "CreatedBy": "Syan",
     "CreatedByURL": "",
     "DocsURL": "",
     "MarketplaceURL": "",
@@ -17,7 +17,7 @@
     "EnabledByDefault": false,
     "Modules": [
         {
-            "Name": "UE5ProjectAnalyzer",
+            "Name": "UnrealProjectAnalyzer",
             "Type": "Editor",
             "LoadingPhase": "PostEngineInit"
         }

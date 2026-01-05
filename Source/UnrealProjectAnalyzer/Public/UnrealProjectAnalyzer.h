@@ -1,4 +1,4 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
 #pragma once
 
@@ -9,12 +9,12 @@ class FHttpServerModule;
 class IHttpRouter;
 
 /**
- * UE5 Project Analyzer Module
+ * Unreal Project Analyzer Module
  * 
  * Provides HTTP API for Blueprint, Asset, and C++ analysis.
  * Also manages the Python Bridge lifecycle.
  */
-class FUE5ProjectAnalyzerModule : public IModuleInterface
+class FUnrealProjectAnalyzerModule : public IModuleInterface
 {
 public:
     /** IModuleInterface implementation */
@@ -22,7 +22,7 @@ public:
     virtual void ShutdownModule() override;
     
     /** Get the module instance */
-    static FUE5ProjectAnalyzerModule& Get();
+    static FUnrealProjectAnalyzerModule& Get();
     
     /** Check if module is loaded */
     static bool IsAvailable();
@@ -73,5 +73,5 @@ private:
     bool bPythonBridgeInitialized = false;
 
     /** External MCP Server process manager (uv run ...) */
-    class FUE5ProjectAnalyzerMcpLauncher* McpLauncher = nullptr;
+    class FUnrealProjectAnalyzerMcpLauncher* McpLauncher = nullptr;
 };

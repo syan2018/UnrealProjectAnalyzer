@@ -1,10 +1,10 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 
-class UUE5ProjectAnalyzerSettings;
+class UUnrealProjectAnalyzerSettings;
 
 /**
  * Manage external MCP Server process (uv run ...).
@@ -14,10 +14,10 @@ class UUE5ProjectAnalyzerSettings;
  * - 通过 uv 管理 Python 依赖，不污染 Unreal 自带 Python
  * - 默认只监听 127.0.0.1，避免对局域网暴露
  */
-class FUE5ProjectAnalyzerMcpLauncher
+class FUnrealProjectAnalyzerMcpLauncher
 {
 public:
-	bool Start(const UUE5ProjectAnalyzerSettings& Settings);
+	bool Start(const UUnrealProjectAnalyzerSettings& Settings);
 	void Stop();
 	bool IsRunning() const;
 
@@ -27,7 +27,7 @@ public:
 private:
 	static FString GetDefaultMcpServerDir();
 	static FString Quote(const FString& S);
-	static FString TransportToArg(const UUE5ProjectAnalyzerSettings& Settings);
+	static FString TransportToArg(const UUnrealProjectAnalyzerSettings& Settings);
 
 private:
 	FProcHandle ProcHandle;

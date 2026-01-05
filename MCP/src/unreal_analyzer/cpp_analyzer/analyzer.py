@@ -1,7 +1,7 @@
 """
 C++ Analyzer - Core analysis logic using tree-sitter.
 
-Focused on analyzing C++ source code for UE5 projects to enable
+Focused on analyzing C++ source code for Unreal projects to enable
 reference chain tracing across Blueprint ↔ C++ boundaries.
 
 Core capabilities:

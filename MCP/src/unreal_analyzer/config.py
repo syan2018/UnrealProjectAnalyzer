@@ -1,15 +1,15 @@
 """
-Configuration management for UE5 Project Analyzer.
+Configuration management for Unreal Project Analyzer.
 
 All configuration is done via environment variables:
 
 C++ Analysis:
 - CPP_SOURCE_PATH: Path to project's C++ source directory (required for C++ analysis)
-- UNREAL_ENGINE_PATH: Path to UE5 installation (optional, for engine source)
+- UNREAL_ENGINE_PATH: Path to Unreal installation (optional, for engine source)
 
-UE5 Plugin Communication:
-- UE_PLUGIN_HOST: Host for UE5 Plugin HTTP API (default: localhost)
-- UE_PLUGIN_PORT: Port for UE5 Plugin HTTP API (default: 8080)
+Unreal Plugin Communication:
+- UE_PLUGIN_HOST: Host for Unreal Plugin HTTP API (default: localhost)
+- UE_PLUGIN_PORT: Port for Unreal Plugin HTTP API (default: 8080)
 
 Cache Settings:
 - ANALYZER_CACHE_ENABLED: Enable caching (default: true)
@@ -32,7 +32,7 @@ def _parse_bool(value: str | None, default: bool = True) -> bool:
 class Config:
     """Server configuration loaded from environment variables."""
     
-    # UE5 Plugin HTTP API
+    # Unreal Plugin HTTP API
     ue_plugin_host: str = field(
         default_factory=lambda: os.getenv("UE_PLUGIN_HOST", "localhost")
     )
@@ -65,7 +65,7 @@ class Config:
     
     @property
     def ue_plugin_url(self) -> str:
-        """Get the full URL for UE5 plugin API."""
+        """Get the full URL for Unreal plugin API."""
         return f"http://{self.ue_plugin_host}:{self.ue_plugin_port}"
     
     def add_source_path(self, path: str | Path) -> None:

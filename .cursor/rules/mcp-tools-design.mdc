@@ -54,7 +54,7 @@ description: "MCP 工具设计原则和完整工具清单"
 ## 工具实现模板
 
 ```python
-# Mcp/src/ue5_analyzer/tools/xxx.py
+# Mcp/src/unreal_analyzer/tools/xxx.py
 
 async def tool_name(
     required_param: str,

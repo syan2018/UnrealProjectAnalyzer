@@ -1,5 +1,5 @@
 """
-Python Bridge Server for UE5 Project Analyzer.
+Python Bridge Server for Unreal Project Analyzer.
 
 This script runs inside the Unreal Editor Python environment.
 It provides supplementary APIs that cannot be implemented in C++.
@@ -23,11 +23,11 @@ def start_bridge():
     global _running
     
     if _running:
-        unreal.log_warning("UE5ProjectAnalyzer: Python bridge already running")
+        unreal.log_warning("UnrealProjectAnalyzer: Python bridge already running")
         return
     
     _running = True
-    unreal.log("UE5ProjectAnalyzer: Python bridge started on port {}".format(BRIDGE_PORT))
+    unreal.log("UnrealProjectAnalyzer: Python bridge started on port {}".format(BRIDGE_PORT))
     
     # TODO: Implement actual TCP/HTTP server if needed
     # For now, we expose functions that C++ can call directly via Python API
@@ -37,7 +37,7 @@ def stop_bridge():
     """Stop the Python bridge server."""
     global _running
     _running = False
-    unreal.log("UE5ProjectAnalyzer: Python bridge stopped")
+    unreal.log("UnrealProjectAnalyzer: Python bridge stopped")
 
 
 # ============================================================================

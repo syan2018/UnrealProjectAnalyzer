@@ -2,7 +2,7 @@
 C++ source code analysis tools.
 
 These tools use tree-sitter to analyze C++ source files directly,
-without requiring communication with the UE5 Editor.
+without requiring communication with the Unreal Editor.
 
 Core capabilities for reference chain tracing:
 - Class structure analysis
@@ -13,7 +13,7 @@ Core capabilities for reference chain tracing:
 
 Configuration is done via environment variables:
 - CPP_SOURCE_PATH: Path to C++ source directory (required)
-- UNREAL_ENGINE_PATH: Optional path to UE5 installation for engine source analysis
+- UNREAL_ENGINE_PATH: Optional path to Unreal installation for engine source analysis
 """
 
 from typing import Literal

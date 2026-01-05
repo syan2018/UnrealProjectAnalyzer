@@ -2,19 +2,19 @@
 MCP Server entry point.
 
 Provides unified access to:
-- Blueprint analysis tools (via UE5 Plugin HTTP API)
-- Asset reference tools (via UE5 Plugin HTTP API)
+- Blueprint analysis tools (via Unreal Plugin HTTP API)
+- Asset reference tools (via Unreal Plugin HTTP API)
 - C++ source analysis tools (built-in tree-sitter based)
 - Cross-domain analysis tools
 
-This server enables AI agents to comprehensively analyze UE5 projects,
+This server enables AI agents to comprehensively analyze Unreal projects,
 tracing references across Blueprint ↔ C++ ↔ Asset boundaries.
 
 Configuration (via environment variables):
 - CPP_SOURCE_PATH: Path to project's C++ source directory (required for C++ analysis)
-- UNREAL_ENGINE_PATH: Path to UE5 installation (optional, for engine source analysis)
-- UE_PLUGIN_HOST: Host for UE5 Plugin HTTP API (default: localhost)
-- UE_PLUGIN_PORT: Port for UE5 Plugin HTTP API (default: 8080)
+- UNREAL_ENGINE_PATH: Path to Unreal installation (optional, for engine source analysis)
+- UE_PLUGIN_HOST: Host for Unreal Plugin HTTP API (default: localhost)
+- UE_PLUGIN_PORT: Port for Unreal Plugin HTTP API (default: 8080)
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from .tools import blueprint, asset, cpp, cross_domain
 
 # Initialize MCP server
 mcp = FastMCP(
-    name="UE5ProjectAnalyzer",
+    name="UnrealProjectAnalyzer",
     version="0.1.0",
 )
 
@@ -39,8 +39,8 @@ def register_tools():
     Register all MCP tools.
     
     Tools are organized into groups focused on reference chain tracing:
-    - Blueprint: Blueprint analysis via UE5 Plugin
-    - Asset: Asset reference tracking via UE5 Plugin
+    - Blueprint: Blueprint analysis via Unreal Plugin
+    - Asset: Asset reference tracking via Unreal Plugin
     - C++: Source code analysis via tree-sitter
     - Cross-domain: Reference tracing across all domains
     """
@@ -48,7 +48,7 @@ def register_tools():
     # ========================================================================
     # Blueprint Tools
     # ========================================================================
-    # These communicate with the UE5 Plugin HTTP API
+    # These communicate with the Unreal Plugin HTTP API
     
     mcp.tool(
         description="Search blueprints by name pattern and optional class filter"
@@ -77,7 +77,7 @@ def register_tools():
     # ========================================================================
     # Asset Tools
     # ========================================================================
-    # These communicate with the UE5 Plugin HTTP API
+    # These communicate with the Unreal Plugin HTTP API
     
     mcp.tool(
         description="Search assets by name pattern and optional type filter"
@@ -145,7 +145,7 @@ def initialize_from_environment():
     
     Environment variables:
     - CPP_SOURCE_PATH: Path to project's C++ source directory
-    - UNREAL_ENGINE_PATH: Path to UE5 installation
+    - UNREAL_ENGINE_PATH: Path to Unreal installation
     """
     from .cpp_analyzer import get_analyzer
     import asyncio
@@ -163,20 +163,20 @@ def initialize_from_environment():
         if cpp_source_path:
             try:
                 await analyzer.initialize_custom_codebase(cpp_source_path)
-                print(f"[UE5 Analyzer] Initialized with C++ source path: {cpp_source_path}")
+                print(f"[Unreal Analyzer] Initialized with C++ source path: {cpp_source_path}")
                 return True
             except Exception as e:
-                print(f"[UE5 Analyzer] Failed to initialize from CPP_SOURCE_PATH: {e}")
+                print(f"[Unreal Analyzer] Failed to initialize from CPP_SOURCE_PATH: {e}")
         
         if unreal_engine_path:
             try:
                 await analyzer.initialize(unreal_engine_path)
-                print(f"[UE5 Analyzer] Initialized with UE path: {unreal_engine_path}")
+                print(f"[Unreal Analyzer] Initialized with UE path: {unreal_engine_path}")
                 return True
             except Exception as e:
-                print(f"[UE5 Analyzer] Failed to initialize from UNREAL_ENGINE_PATH: {e}")
+                print(f"[Unreal Analyzer] Failed to initialize from UNREAL_ENGINE_PATH: {e}")
         
-        print("[UE5 Analyzer] Warning: No C++ source path configured.")
+        print("[Unreal Analyzer] Warning: No C++ source path configured.")
         print("  Set CPP_SOURCE_PATH environment variable to enable C++ analysis.")
         return False
     
@@ -195,8 +195,8 @@ def initialize_from_environment():
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="ue5-analyzer",
-        description="UE5 Project Analyzer MCP Server (FastMCP)",
+        prog="unreal-analyzer",
+        description="Unreal Project Analyzer MCP Server (FastMCP)",
     )
 
     parser.add_argument(
@@ -291,7 +291,7 @@ def main():
 
     if args.print_config:
         cfg = get_config()
-        print("[UE5 Analyzer] Effective config:")
+        print("[Unreal Analyzer] Effective config:")
         print("  CPP_SOURCE_PATH:", os.getenv("CPP_SOURCE_PATH"))
         print("  UNREAL_ENGINE_PATH:", os.getenv("UNREAL_ENGINE_PATH"))
         print("  UE_PLUGIN_URL:", cfg.ue_plugin_url)
@@ -305,7 +305,7 @@ def main():
         try:
             initialize_from_environment()
         except Exception as e:
-            print(f"[UE5 Analyzer] Initialization error: {e}")
+            print(f"[Unreal Analyzer] Initialization error: {e}")
 
     # Run server with selected transport.
     #

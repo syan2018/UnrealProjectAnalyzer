@@ -1,12 +1,12 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
-#include "UE5AnalyzerHttpUtils.h"
+#include "UnrealAnalyzerHttpUtils.h"
 
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 
-bool FUE5AnalyzerHttpUtils::GetRequiredQueryParam(const FHttpServerRequest& Request, const FString& Key, FString& OutValue)
+bool FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(const FHttpServerRequest& Request, const FString& Key, FString& OutValue)
 {
 	const FString* Found = Request.QueryParams.Find(Key);
 	if (!Found || Found->IsEmpty())
@@ -17,20 +17,20 @@ bool FUE5AnalyzerHttpUtils::GetRequiredQueryParam(const FHttpServerRequest& Requ
 	return true;
 }
 
-FString FUE5AnalyzerHttpUtils::GetOptionalQueryParam(const FHttpServerRequest& Request, const FString& Key, const FString& DefaultValue)
+FString FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(const FHttpServerRequest& Request, const FString& Key, const FString& DefaultValue)
 {
 	const FString* Found = Request.QueryParams.Find(Key);
 	return (Found && !Found->IsEmpty()) ? *Found : DefaultValue;
 }
 
-TUniquePtr<FHttpServerResponse> FUE5AnalyzerHttpUtils::JsonResponse(const FString& JsonBody, EHttpServerResponseCodes Code)
+TUniquePtr<FHttpServerResponse> FUnrealAnalyzerHttpUtils::JsonResponse(const FString& JsonBody, EHttpServerResponseCodes Code)
 {
 	TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(JsonBody, TEXT("application/json"));
 	Response->Code = Code;
 	return Response;
 }
 
-TUniquePtr<FHttpServerResponse> FUE5AnalyzerHttpUtils::JsonError(const FString& Message, EHttpServerResponseCodes Code, const FString& Detail)
+TUniquePtr<FHttpServerResponse> FUnrealAnalyzerHttpUtils::JsonError(const FString& Message, EHttpServerResponseCodes Code, const FString& Detail)
 {
 	TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
 	Root->SetBoolField(TEXT("ok"), false);
@@ -47,7 +47,7 @@ TUniquePtr<FHttpServerResponse> FUE5AnalyzerHttpUtils::JsonError(const FString& 
 	return JsonResponse(OutJson, Code);
 }
 
-FString FUE5AnalyzerHttpUtils::NormalizeToPackagePath(const FString& AnyPath)
+FString FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(const FString& AnyPath)
 {
 	// Input may be:
 	// - /Game/Blueprints/BP_Player
@@ -61,7 +61,7 @@ FString FUE5AnalyzerHttpUtils::NormalizeToPackagePath(const FString& AnyPath)
 	return AnyPath;
 }
 
-FString FUE5AnalyzerHttpUtils::NormalizeToObjectPath(const FString& PackageOrObjectPath)
+FString FUnrealAnalyzerHttpUtils::NormalizeToObjectPath(const FString& PackageOrObjectPath)
 {
 	int32 DotIndex = INDEX_NONE;
 	if (PackageOrObjectPath.FindChar(TEXT('.'), DotIndex))

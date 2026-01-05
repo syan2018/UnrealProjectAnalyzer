@@ -1,15 +1,15 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
-#include "UE5ProjectAnalyzer.h"
+#include "UnrealProjectAnalyzer.h"
 #include "HttpServerModule.h"
 #include "IHttpRouter.h"
 #include "HttpPath.h"
 #include "IPythonScriptPlugin.h"
 #include "Misc/Paths.h"
 
-#include "UE5AnalyzerHttpRoutes.h"
-#include "UE5ProjectAnalyzerMcpLauncher.h"
-#include "UE5ProjectAnalyzerSettings.h"
+#include "UnrealAnalyzerHttpRoutes.h"
+#include "UnrealProjectAnalyzerMcpLauncher.h"
+#include "UnrealProjectAnalyzerSettings.h"
 
 #include "Interfaces/IPluginManager.h"
 #include "ToolMenus.h"
@@ -21,13 +21,13 @@
 #include "HAL/PlatformApplicationMisc.h"
 #include "ISettingsModule.h"
 
-#define LOCTEXT_NAMESPACE "FUE5ProjectAnalyzerModule"
+#define LOCTEXT_NAMESPACE "FUnrealProjectAnalyzerModule"
 
-void FUE5ProjectAnalyzerModule::StartupModule()
+void FUnrealProjectAnalyzerModule::StartupModule()
 {
-    UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: Starting module..."));
+    UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Starting module..."));
 
-    McpLauncher = new FUE5ProjectAnalyzerMcpLauncher();
+    McpLauncher = new FUnrealProjectAnalyzerMcpLauncher();
     
     // Initialize HTTP server
     InitializeHttpServer();
@@ -40,18 +40,18 @@ void FUE5ProjectAnalyzerModule::StartupModule()
     RegisterMenus();
 
     // Optional auto-start (only for HTTP/SSE transports; stdio is typically Cursor-managed)
-    const UUE5ProjectAnalyzerSettings* Settings = GetDefault<UUE5ProjectAnalyzerSettings>();
-    if (Settings && Settings->bAutoStartMcpServer && Settings->Transport != EUE5AnalyzerMcpTransport::Stdio)
+    const UUnrealProjectAnalyzerSettings* Settings = GetDefault<UUnrealProjectAnalyzerSettings>();
+    if (Settings && Settings->bAutoStartMcpServer && Settings->Transport != EUnrealAnalyzerMcpTransport::Stdio)
     {
         StartMcpServer();
     }
     
-    UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: Module started successfully. HTTP API available at port %d"), HttpPort);
+    UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Module started successfully. HTTP API available at port %d"), HttpPort);
 }
 
-void FUE5ProjectAnalyzerModule::ShutdownModule()
+void FUnrealProjectAnalyzerModule::ShutdownModule()
 {
-    UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: Shutting down module..."));
+    UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Shutting down module..."));
 
     UnregisterMenus();
     UnregisterSettings();
@@ -63,20 +63,20 @@ void FUE5ProjectAnalyzerModule::ShutdownModule()
     ShutdownPythonBridge();
     ShutdownHttpServer();
     
-    UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: Module shutdown complete."));
+    UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Module shutdown complete."));
 }
 
-FUE5ProjectAnalyzerModule& FUE5ProjectAnalyzerModule::Get()
+FUnrealProjectAnalyzerModule& FUnrealProjectAnalyzerModule::Get()
 {
-    return FModuleManager::LoadModuleChecked<FUE5ProjectAnalyzerModule>("UE5ProjectAnalyzer");
+    return FModuleManager::LoadModuleChecked<FUnrealProjectAnalyzerModule>("UnrealProjectAnalyzer");
 }
 
-bool FUE5ProjectAnalyzerModule::IsAvailable()
+bool FUnrealProjectAnalyzerModule::IsAvailable()
 {
-    return FModuleManager::Get().IsModuleLoaded("UE5ProjectAnalyzer");
+    return FModuleManager::Get().IsModuleLoaded("UnrealProjectAnalyzer");
 }
 
-void FUE5ProjectAnalyzerModule::InitializeHttpServer()
+void FUnrealProjectAnalyzerModule::InitializeHttpServer()
 {
     // Get HTTP server module
     FHttpServerModule& HttpServerModule = FHttpServerModule::Get();
@@ -91,15 +91,15 @@ void FUE5ProjectAnalyzerModule::InitializeHttpServer()
     {
         // Register all routes
         RegisterRoutes(HttpRouter);
-        UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: HTTP server initialized on port %d"), HttpPort);
+        UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: HTTP server initialized on port %d"), HttpPort);
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("UE5ProjectAnalyzer: Failed to initialize HTTP server on port %d"), HttpPort);
+        UE_LOG(LogTemp, Error, TEXT("UnrealProjectAnalyzer: Failed to initialize HTTP server on port %d"), HttpPort);
     }
 }
 
-void FUE5ProjectAnalyzerModule::ShutdownHttpServer()
+void FUnrealProjectAnalyzerModule::ShutdownHttpServer()
 {
     if (HttpRouter.IsValid())
     {
@@ -108,26 +108,26 @@ void FUE5ProjectAnalyzerModule::ShutdownHttpServer()
     }
 }
 
-void FUE5ProjectAnalyzerModule::InitializePythonBridge()
+void FUnrealProjectAnalyzerModule::InitializePythonBridge()
 {
     // Check if Python plugin is available
     IPythonScriptPlugin* PythonPlugin = FModuleManager::GetModulePtr<IPythonScriptPlugin>("PythonScriptPlugin");
     
     if (!PythonPlugin)
     {
-        UE_LOG(LogTemp, Warning, TEXT("UE5ProjectAnalyzer: PythonScriptPlugin not available. Python bridge disabled."));
+        UE_LOG(LogTemp, Warning, TEXT("UnrealProjectAnalyzer: PythonScriptPlugin not available. Python bridge disabled."));
         return;
     }
     
     // Get the path to our Python bridge script (do NOT hardcode ProjectPluginsDir / plugin folder name)
-    TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("UE5ProjectAnalyzer"));
+    TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("UnrealProjectAnalyzer"));
     const FString PluginDir = Plugin.IsValid() ? Plugin->GetBaseDir() : FPaths::ProjectPluginsDir();
     FString BridgeScriptPath = FPaths::Combine(PluginDir, TEXT("Content/Python/bridge_server.py"));
     
     // Check if script exists
     if (!FPaths::FileExists(BridgeScriptPath))
     {
-        UE_LOG(LogTemp, Warning, TEXT("UE5ProjectAnalyzer: Python bridge script not found at %s"), *BridgeScriptPath);
+        UE_LOG(LogTemp, Warning, TEXT("UnrealProjectAnalyzer: Python bridge script not found at %s"), *BridgeScriptPath);
         return;
     }
     
@@ -141,10 +141,10 @@ void FUE5ProjectAnalyzerModule::InitializePythonBridge()
     PythonPlugin->ExecPythonCommand(*PythonCommand);
     
     bPythonBridgeInitialized = true;
-    UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: Python bridge initialized."));
+    UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Python bridge initialized."));
 }
 
-void FUE5ProjectAnalyzerModule::ShutdownPythonBridge()
+void FUnrealProjectAnalyzerModule::ShutdownPythonBridge()
 {
     if (bPythonBridgeInitialized)
     {
@@ -153,7 +153,7 @@ void FUE5ProjectAnalyzerModule::ShutdownPythonBridge()
     }
 }
 
-void FUE5ProjectAnalyzerModule::RegisterRoutes(TSharedPtr<IHttpRouter> Router)
+void FUnrealProjectAnalyzerModule::RegisterRoutes(TSharedPtr<IHttpRouter> Router)
 {
     if (!Router.IsValid())
     {
@@ -167,7 +167,7 @@ void FUE5ProjectAnalyzerModule::RegisterRoutes(TSharedPtr<IHttpRouter> Router)
         [](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
         {
             TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
-                TEXT("{\"status\": \"ok\", \"service\": \"UE5ProjectAnalyzer\"}"),
+                TEXT("{\"status\": \"ok\", \"service\": \"UnrealProjectAnalyzer\"}"),
                 TEXT("application/json")
             );
             OnComplete(MoveTemp(Response));
@@ -178,16 +178,16 @@ void FUE5ProjectAnalyzerModule::RegisterRoutes(TSharedPtr<IHttpRouter> Router)
     // Register analyzer API routes.
     // NOTE: For any parameter that contains "/Game/...", we use query params (e.g. ?bp_path=...),
     // to avoid router path-segment matching issues.
-    UE5AnalyzerHttpRoutes::Register(Router);
+    UnrealAnalyzerHttpRoutes::Register(Router);
     
-    UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: Routes registered."));
+    UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: Routes registered."));
 }
 
 // ============================================================================
 // Settings + Menus
 // ============================================================================
 
-void FUE5ProjectAnalyzerModule::RegisterSettings()
+void FUnrealProjectAnalyzerModule::RegisterSettings()
 {
     ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
     if (!SettingsModule)
@@ -198,14 +198,14 @@ void FUE5ProjectAnalyzerModule::RegisterSettings()
     SettingsModule->RegisterSettings(
         "Project",
         "Plugins",
-        "UE5ProjectAnalyzer",
-        LOCTEXT("UE5ProjectAnalyzerSettingsName", "UE5 Project Analyzer"),
-        LOCTEXT("UE5ProjectAnalyzerSettingsDesc", "Settings for UE5 Project Analyzer (MCP launcher, transport, and analyzer paths)."),
-        GetMutableDefault<UUE5ProjectAnalyzerSettings>()
+        "UnrealProjectAnalyzer",
+        LOCTEXT("UnrealProjectAnalyzerSettingsName", "Unreal Project Analyzer"),
+        LOCTEXT("UnrealProjectAnalyzerSettingsDesc", "Settings for Unreal Project Analyzer (MCP launcher, transport, and analyzer paths)."),
+        GetMutableDefault<UUnrealProjectAnalyzerSettings>()
     );
 }
 
-void FUE5ProjectAnalyzerModule::UnregisterSettings()
+void FUnrealProjectAnalyzerModule::UnregisterSettings()
 {
     ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
     if (!SettingsModule)
@@ -213,10 +213,10 @@ void FUE5ProjectAnalyzerModule::UnregisterSettings()
         return;
     }
 
-    SettingsModule->UnregisterSettings("Project", "Plugins", "UE5ProjectAnalyzer");
+    SettingsModule->UnregisterSettings("Project", "Plugins", "UnrealProjectAnalyzer");
 }
 
-void FUE5ProjectAnalyzerModule::RegisterMenus()
+void FUnrealProjectAnalyzerModule::RegisterMenus()
 {
     if (!UToolMenus::IsToolMenusAvailable())
     {
@@ -233,14 +233,14 @@ void FUE5ProjectAnalyzerModule::RegisterMenus()
             return;
         }
 
-        FToolMenuSection& Section = Menu->FindOrAddSection("UE5ProjectAnalyzer");
+        FToolMenuSection& Section = Menu->FindOrAddSection("UnrealProjectAnalyzer");
 
         // Start
         Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UE5ProjectAnalyzer.StartMcp",
+            "UnrealProjectAnalyzer.StartMcp",
             FUIAction(
-                FExecuteAction::CreateRaw(this, &FUE5ProjectAnalyzerModule::StartMcpServer),
-                FCanExecuteAction::CreateRaw(this, &FUE5ProjectAnalyzerModule::CanStartMcpServer)
+                FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::StartMcpServer),
+                FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStartMcpServer)
             ),
             LOCTEXT("StartMcp_Label", "Start MCP"),
             LOCTEXT("StartMcp_Tooltip", "Start MCP Server via uv (HTTP/SSE transport recommended for quick connect)."),
@@ -249,10 +249,10 @@ void FUE5ProjectAnalyzerModule::RegisterMenus()
 
         // Stop
         Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UE5ProjectAnalyzer.StopMcp",
+            "UnrealProjectAnalyzer.StopMcp",
             FUIAction(
-                FExecuteAction::CreateRaw(this, &FUE5ProjectAnalyzerModule::StopMcpServer),
-                FCanExecuteAction::CreateRaw(this, &FUE5ProjectAnalyzerModule::CanStopMcpServer)
+                FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::StopMcpServer),
+                FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStopMcpServer)
             ),
             LOCTEXT("StopMcp_Label", "Stop MCP"),
             LOCTEXT("StopMcp_Tooltip", "Stop MCP Server process."),
@@ -261,10 +261,10 @@ void FUE5ProjectAnalyzerModule::RegisterMenus()
 
         // Copy URL
         Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UE5ProjectAnalyzer.CopyMcpUrl",
+            "UnrealProjectAnalyzer.CopyMcpUrl",
             FUIAction(
-                FExecuteAction::CreateRaw(this, &FUE5ProjectAnalyzerModule::CopyMcpUrlToClipboard),
-                FCanExecuteAction::CreateRaw(this, &FUE5ProjectAnalyzerModule::CanStopMcpServer) // running => can copy
+                FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CopyMcpUrlToClipboard),
+                FCanExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::CanStopMcpServer) // running => can copy
             ),
             LOCTEXT("CopyMcpUrl_Label", "Copy MCP URL"),
             LOCTEXT("CopyMcpUrl_Tooltip", "Copy MCP URL to clipboard (HTTP/SSE only)."),
@@ -273,16 +273,16 @@ void FUE5ProjectAnalyzerModule::RegisterMenus()
 
         // Settings
         Section.AddEntry(FToolMenuEntry::InitToolBarButton(
-            "UE5ProjectAnalyzer.OpenSettings",
-            FUIAction(FExecuteAction::CreateRaw(this, &FUE5ProjectAnalyzerModule::OpenPluginSettings)),
+            "UnrealProjectAnalyzer.OpenSettings",
+            FUIAction(FExecuteAction::CreateRaw(this, &FUnrealProjectAnalyzerModule::OpenPluginSettings)),
             LOCTEXT("OpenSettings_Label", "MCP Settings"),
-            LOCTEXT("OpenSettings_Tooltip", "Open UE5 Project Analyzer settings."),
+            LOCTEXT("OpenSettings_Tooltip", "Open Unreal Project Analyzer settings."),
             FSlateIcon()
         ));
     }));
 }
 
-void FUE5ProjectAnalyzerModule::UnregisterMenus()
+void FUnrealProjectAnalyzerModule::UnregisterMenus()
 {
     if (UToolMenus::IsToolMenusAvailable())
     {
@@ -290,24 +290,24 @@ void FUE5ProjectAnalyzerModule::UnregisterMenus()
     }
 }
 
-bool FUE5ProjectAnalyzerModule::CanStartMcpServer() const
+bool FUnrealProjectAnalyzerModule::CanStartMcpServer() const
 {
     return McpLauncher && !McpLauncher->IsRunning();
 }
 
-bool FUE5ProjectAnalyzerModule::CanStopMcpServer() const
+bool FUnrealProjectAnalyzerModule::CanStopMcpServer() const
 {
     return McpLauncher && McpLauncher->IsRunning();
 }
 
-void FUE5ProjectAnalyzerModule::StartMcpServer()
+void FUnrealProjectAnalyzerModule::StartMcpServer()
 {
     if (!McpLauncher)
     {
         return;
     }
 
-    const UUE5ProjectAnalyzerSettings* Settings = GetDefault<UUE5ProjectAnalyzerSettings>();
+    const UUnrealProjectAnalyzerSettings* Settings = GetDefault<UUnrealProjectAnalyzerSettings>();
     if (!Settings)
     {
         return;
@@ -318,15 +318,15 @@ void FUE5ProjectAnalyzerModule::StartMcpServer()
     {
         const FText Msg = LOCTEXT("McpStartFailed", "Failed to start MCP Server. Please ensure `uv` is installed and configured in settings.");
         FMessageDialog::Open(EAppMsgType::Ok, Msg);
-        UE_LOG(LogTemp, Error, TEXT("UE5ProjectAnalyzer: Failed to start MCP server. cmd=%s"), *McpLauncher->GetLastCommandLine());
+        UE_LOG(LogTemp, Error, TEXT("UnrealProjectAnalyzer: Failed to start MCP server. cmd=%s"), *McpLauncher->GetLastCommandLine());
         return;
     }
 
     const FString Url = McpLauncher->GetMcpUrl();
-    UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: MCP server started. %s"), *McpLauncher->GetLastCommandLine());
+    UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: MCP server started. %s"), *McpLauncher->GetLastCommandLine());
     if (!Url.IsEmpty())
     {
-        UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: MCP URL: %s"), *Url);
+        UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: MCP URL: %s"), *Url);
     }
 
     FNotificationInfo Info(LOCTEXT("McpStarted", "MCP Server started"));
@@ -334,7 +334,7 @@ void FUE5ProjectAnalyzerModule::StartMcpServer()
     FSlateNotificationManager::Get().AddNotification(Info);
 }
 
-void FUE5ProjectAnalyzerModule::StopMcpServer()
+void FUnrealProjectAnalyzerModule::StopMcpServer()
 {
     if (!McpLauncher)
     {
@@ -344,7 +344,7 @@ void FUE5ProjectAnalyzerModule::StopMcpServer()
     if (McpLauncher->IsRunning())
     {
         McpLauncher->Stop();
-        UE_LOG(LogTemp, Log, TEXT("UE5ProjectAnalyzer: MCP server stopped."));
+        UE_LOG(LogTemp, Log, TEXT("UnrealProjectAnalyzer: MCP server stopped."));
 
         FNotificationInfo Info(LOCTEXT("McpStopped", "MCP Server stopped"));
         Info.ExpireDuration = 3.0f;
@@ -352,7 +352,7 @@ void FUE5ProjectAnalyzerModule::StopMcpServer()
     }
 }
 
-void FUE5ProjectAnalyzerModule::CopyMcpUrlToClipboard() const
+void FUnrealProjectAnalyzerModule::CopyMcpUrlToClipboard() const
 {
     if (!McpLauncher || !McpLauncher->IsRunning())
     {
@@ -374,15 +374,15 @@ void FUE5ProjectAnalyzerModule::CopyMcpUrlToClipboard() const
     FSlateNotificationManager::Get().AddNotification(Info);
 }
 
-void FUE5ProjectAnalyzerModule::OpenPluginSettings() const
+void FUnrealProjectAnalyzerModule::OpenPluginSettings() const
 {
     ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
     if (SettingsModule)
     {
-        SettingsModule->ShowViewer("Project", "Plugins", "UE5ProjectAnalyzer");
+        SettingsModule->ShowViewer("Project", "Plugins", "UnrealProjectAnalyzer");
     }
 }
 
 #undef LOCTEXT_NAMESPACE
     
-IMPLEMENT_MODULE(FUE5ProjectAnalyzerModule, UE5ProjectAnalyzer)
+IMPLEMENT_MODULE(FUnrealProjectAnalyzerModule, UnrealProjectAnalyzer)

@@ -1,6 +1,6 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 //
-// Small HTTP/JSON helpers for UE5ProjectAnalyzer routes.
+// Small HTTP/JSON helpers for UnrealProjectAnalyzer routes.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include "HttpServerResponse.h"
 #include "HttpServerRequest.h"
 
-class FUE5AnalyzerHttpUtils
+class FUnrealAnalyzerHttpUtils
 {
 public:
 	/** Read a required query parameter. Returns false if missing/empty. */

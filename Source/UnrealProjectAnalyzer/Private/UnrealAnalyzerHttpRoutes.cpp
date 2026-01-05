@@ -1,8 +1,8 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
-#include "UE5AnalyzerHttpRoutes.h"
+#include "UnrealAnalyzerHttpRoutes.h"
 
-#include "UE5AnalyzerHttpUtils.h"
+#include "UnrealAnalyzerHttpUtils.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Dom/JsonObject.h"
@@ -40,7 +40,7 @@ namespace
 
 	static UBlueprint* LoadBlueprintFromPath(const FString& BpPath)
 	{
-		const FString ObjectPath = FUE5AnalyzerHttpUtils::NormalizeToObjectPath(BpPath);
+		const FString ObjectPath = FUnrealAnalyzerHttpUtils::NormalizeToObjectPath(BpPath);
 		return Cast<UBlueprint>(StaticLoadObject(UBlueprint::StaticClass(), nullptr, *ObjectPath));
 	}
 
@@ -100,8 +100,8 @@ namespace
 
 	static bool HandleBlueprintSearch(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
-		const FString PatternRaw = FUE5AnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("pattern"), TEXT("*"));
-		const FString ClassFilter = FUE5AnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("class"), TEXT(""));
+		const FString PatternRaw = FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("pattern"), TEXT("*"));
+		const FString ClassFilter = FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("class"), TEXT(""));
 
 		// Make a wildcard-friendly pattern: "Foo" -> "*Foo*"
 		FString Pattern = PatternRaw;
@@ -165,23 +165,23 @@ namespace
 		Root->SetArrayField(TEXT("matches"), Matches);
 		Root->SetNumberField(TEXT("count"), Matches.Num());
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleBlueprintHierarchy(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString BpPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
 			return true;
 		}
 
 		UBlueprint* Blueprint = LoadBlueprintFromPath(BpPath);
 		if (!Blueprint || !Blueprint->GeneratedClass)
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Failed to load Blueprint"), EHttpServerResponseCodes::NotFound, BpPath));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Failed to load Blueprint"), EHttpServerResponseCodes::NotFound, BpPath));
 			return true;
 		}
 
@@ -204,25 +204,25 @@ namespace
 
 		TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
 		Root->SetBoolField(TEXT("ok"), true);
-		Root->SetStringField(TEXT("blueprint"), FUE5AnalyzerHttpUtils::NormalizeToPackagePath(BpPath));
+		Root->SetStringField(TEXT("blueprint"), FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath));
 		Root->SetArrayField(TEXT("hierarchy"), Hierarchy);
 		Root->SetStringField(TEXT("native_parent"), FirstNativeParent);
 		Root->SetArrayField(TEXT("blueprint_parents"), BlueprintParents);
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleBlueprintDependencies(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString BpPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
 			return true;
 		}
 
-		const FString PackagePath = FUE5AnalyzerHttpUtils::NormalizeToPackagePath(BpPath);
+		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath);
 		TArray<FName> Deps;
 		GetAssetRegistry().GetDependencies(FName(*PackagePath), Deps, EAssetRegistryDependencyType::All);
 
@@ -239,20 +239,20 @@ namespace
 		Root->SetArrayField(TEXT("dependencies"), Dependencies);
 		Root->SetNumberField(TEXT("count"), Dependencies.Num());
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleBlueprintReferencers(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString BpPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
 			return true;
 		}
 
-		const FString PackagePath = FUE5AnalyzerHttpUtils::NormalizeToPackagePath(BpPath);
+		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath);
 		TArray<FName> Refs;
 		GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, EAssetRegistryDependencyType::All);
 
@@ -269,31 +269,31 @@ namespace
 		Root->SetArrayField(TEXT("referencers"), Referencers);
 		Root->SetNumberField(TEXT("count"), Referencers.Num());
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleBlueprintGraph(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString BpPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
 			return true;
 		}
-		const FString GraphName = FUE5AnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("graph_name"), TEXT("EventGraph"));
+		const FString GraphName = FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("graph_name"), TEXT("EventGraph"));
 
 		UBlueprint* Blueprint = LoadBlueprintFromPath(BpPath);
 		if (!Blueprint)
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Failed to load Blueprint"), EHttpServerResponseCodes::NotFound, BpPath));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Failed to load Blueprint"), EHttpServerResponseCodes::NotFound, BpPath));
 			return true;
 		}
 
 		UEdGraph* Graph = FindBlueprintGraph(Blueprint, GraphName);
 		if (!Graph)
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Graph not found"), EHttpServerResponseCodes::NotFound, GraphName));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Graph not found"), EHttpServerResponseCodes::NotFound, GraphName));
 			return true;
 		}
 
@@ -363,30 +363,30 @@ namespace
 
 		TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
 		Root->SetBoolField(TEXT("ok"), true);
-		Root->SetStringField(TEXT("blueprint"), FUE5AnalyzerHttpUtils::NormalizeToPackagePath(BpPath));
+		Root->SetStringField(TEXT("blueprint"), FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath));
 		Root->SetStringField(TEXT("graph"), GraphName);
 		Root->SetArrayField(TEXT("nodes"), Nodes);
 		Root->SetArrayField(TEXT("connections"), Connections);
 		Root->SetNumberField(TEXT("node_count"), Nodes.Num());
 		Root->SetNumberField(TEXT("connection_count"), Connections.Num());
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleBlueprintDetails(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString BpPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
 			return true;
 		}
 
 		UBlueprint* Blueprint = LoadBlueprintFromPath(BpPath);
 		if (!Blueprint)
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Failed to load Blueprint"), EHttpServerResponseCodes::NotFound, BpPath));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Failed to load Blueprint"), EHttpServerResponseCodes::NotFound, BpPath));
 			return true;
 		}
 
@@ -461,7 +461,7 @@ namespace
 
 		TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
 		Root->SetBoolField(TEXT("ok"), true);
-		Root->SetStringField(TEXT("blueprint"), FUE5AnalyzerHttpUtils::NormalizeToPackagePath(BpPath));
+		Root->SetStringField(TEXT("blueprint"), FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath));
 		Root->SetArrayField(TEXT("variables"), Variables);
 		Root->SetArrayField(TEXT("functions"), Functions);
 		Root->SetArrayField(TEXT("components"), Components);
@@ -471,7 +471,7 @@ namespace
 		Root->SetNumberField(TEXT("function_count"), Functions.Num());
 		Root->SetNumberField(TEXT("component_count"), Components.Num());
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
@@ -481,8 +481,8 @@ namespace
 
 	static bool HandleAssetSearch(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
-		const FString PatternRaw = FUE5AnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("pattern"), TEXT("*"));
-		const FString TypeFilter = FUE5AnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("type"), TEXT(""));
+		const FString PatternRaw = FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("pattern"), TEXT("*"));
+		const FString TypeFilter = FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("type"), TEXT(""));
 
 		FString Pattern = PatternRaw;
 		if (!Pattern.Contains(TEXT("*")) && !Pattern.Contains(TEXT("?")))
@@ -539,20 +539,20 @@ namespace
 		Root->SetBoolField(TEXT("ok"), true);
 		Root->SetArrayField(TEXT("matches"), Matches);
 		Root->SetNumberField(TEXT("count"), Matches.Num());
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleAssetReferences(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString AssetPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("asset_path"), AssetPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("asset_path"), AssetPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: asset_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: asset_path")));
 			return true;
 		}
 
-		const FString PackagePath = FUE5AnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
+		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
 		TArray<FName> Deps;
 		GetAssetRegistry().GetDependencies(FName(*PackagePath), Deps, EAssetRegistryDependencyType::All);
 
@@ -567,20 +567,20 @@ namespace
 		Root->SetStringField(TEXT("asset"), PackagePath);
 		Root->SetArrayField(TEXT("references"), References);
 		Root->SetNumberField(TEXT("count"), References.Num());
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleAssetReferencers(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString AssetPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("asset_path"), AssetPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("asset_path"), AssetPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: asset_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: asset_path")));
 			return true;
 		}
 
-		const FString PackagePath = FUE5AnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
+		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
 		TArray<FName> Refs;
 		GetAssetRegistry().GetReferencers(FName(*PackagePath), Refs, EAssetRegistryDependencyType::All);
 
@@ -595,27 +595,27 @@ namespace
 		Root->SetStringField(TEXT("asset"), PackagePath);
 		Root->SetArrayField(TEXT("referencers"), Referencers);
 		Root->SetNumberField(TEXT("count"), Referencers.Num());
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleAssetMetadata(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString AssetPath;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("asset_path"), AssetPath))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("asset_path"), AssetPath))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: asset_path")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: asset_path")));
 			return true;
 		}
 
-		const FString PackagePath = FUE5AnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
+		const FString PackagePath = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(AssetPath);
 
 		TArray<FAssetData> Assets;
 		GetAssetRegistry().GetAssetsByPackageName(FName(*PackagePath), Assets);
 
 		if (Assets.Num() == 0)
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Asset not found"), EHttpServerResponseCodes::NotFound, PackagePath));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Asset not found"), EHttpServerResponseCodes::NotFound, PackagePath));
 			return true;
 		}
 
@@ -643,7 +643,7 @@ namespace
 		}
 		Root->SetStringField(TEXT("object_path"), Asset.GetObjectPathString());
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
@@ -715,15 +715,15 @@ namespace
 	static bool HandleReferenceChain(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString Start;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("start"), Start))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("start"), Start))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: start")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: start")));
 			return true;
 		}
 
-		const FString Direction = FUE5AnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("direction"), TEXT("both"));
-		const int32 MaxDepth = FCString::Atoi(*FUE5AnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("depth"), TEXT("3")));
-		const FString StartPackage = FUE5AnalyzerHttpUtils::NormalizeToPackagePath(Start);
+		const FString Direction = FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("direction"), TEXT("both"));
+		const int32 MaxDepth = FCString::Atoi(*FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("depth"), TEXT("3")));
+		const FString StartPackage = FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(Start);
 
 		TSet<FString> Visited;
 		Visited.Add(StartPackage);
@@ -738,16 +738,16 @@ namespace
 		Root->SetObjectField(TEXT("chain"), Chain);
 		Root->SetNumberField(TEXT("unique_nodes"), Visited.Num());
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 
 	static bool HandleCppClassUsage(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString ClassName;
-		if (!FUE5AnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("class"), ClassName))
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("class"), ClassName))
 		{
-			OnComplete(FUE5AnalyzerHttpUtils::JsonError(TEXT("Missing required query param: class")));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: class")));
 			return true;
 		}
 
@@ -799,12 +799,12 @@ namespace
 		Root->SetArrayField(TEXT("as_variable_type"), {});
 		Root->SetArrayField(TEXT("as_function_call"), {});
 
-		OnComplete(FUE5AnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
 	}
 }
 
-void UE5AnalyzerHttpRoutes::Register(TSharedPtr<IHttpRouter> Router)
+void UnrealAnalyzerHttpRoutes::Register(TSharedPtr<IHttpRouter> Router)
 {
 	if (!Router.IsValid())
 	{

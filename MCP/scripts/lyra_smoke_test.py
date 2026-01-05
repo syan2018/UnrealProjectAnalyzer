@@ -1,5 +1,5 @@
 """
-Lyra Starter Game smoke test for UE5 Project Analyzer tools.
+Lyra Starter Game smoke test for Unreal Project Analyzer tools.
 
 Usage (PowerShell):
   $env:CPP_SOURCE_PATH = "D:\\Projects\\Games\\Unreal Projects\\LyraStarterGame\\Source"
@@ -11,14 +11,14 @@ import argparse
 import os
 from pathlib import Path
 
-from ue5_analyzer.config import get_config
-from ue5_analyzer.tools import asset, blueprint, cpp, cross_domain
+from unreal_analyzer.config import get_config
+from unreal_analyzer.tools import asset, blueprint, cpp, cross_domain
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lyra_smoke_test",
-        description="Smoke test for UE5 Project Analyzer tools on LyraStarterGame",
+        description="Smoke test for Unreal Project Analyzer tools on LyraStarterGame",
     )
     parser.add_argument(
         "--cpp-source-path",

@@ -1,8 +1,8 @@
-// Copyright UE5 Project Analyzer Team. All Rights Reserved.
+// Copyright Unreal Project Analyzer Team. All Rights Reserved.
 
-#include "UE5ProjectAnalyzerMcpLauncher.h"
+#include "UnrealProjectAnalyzerMcpLauncher.h"
 
-#include "UE5ProjectAnalyzerSettings.h"
+#include "UnrealProjectAnalyzerSettings.h"
 
 #include "Interfaces/IPluginManager.h"
 #include "Misc/Paths.h"
@@ -18,10 +18,10 @@ namespace
 	}
 }
 
-FString FUE5ProjectAnalyzerMcpLauncher::GetDefaultMcpServerDir()
+FString FUnrealProjectAnalyzerMcpLauncher::GetDefaultMcpServerDir()
 {
 	// uv project lives at plugin root (pyproject.toml at root), so run from <PluginDir>
-	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("UE5ProjectAnalyzer"));
+	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("UnrealProjectAnalyzer"));
 	if (Plugin.IsValid())
 	{
 		return NormalizePath(Plugin->GetBaseDir());
@@ -29,7 +29,7 @@ FString FUE5ProjectAnalyzerMcpLauncher::GetDefaultMcpServerDir()
 	return TEXT("");
 }
 
-FString FUE5ProjectAnalyzerMcpLauncher::Quote(const FString& S)
+FString FUnrealProjectAnalyzerMcpLauncher::Quote(const FString& S)
 {
 	// Minimal quoting for CreateProc command line.
 	if (S.Contains(TEXT(" ")) || S.Contains(TEXT("\t")) || S.Contains(TEXT("\"")))
@@ -41,21 +41,21 @@ FString FUE5ProjectAnalyzerMcpLauncher::Quote(const FString& S)
 	return S;
 }
 
-FString FUE5ProjectAnalyzerMcpLauncher::TransportToArg(const UUE5ProjectAnalyzerSettings& Settings)
+FString FUnrealProjectAnalyzerMcpLauncher::TransportToArg(const UUnrealProjectAnalyzerSettings& Settings)
 {
 	switch (Settings.Transport)
 	{
-	case EUE5AnalyzerMcpTransport::Stdio:
+	case EUnrealAnalyzerMcpTransport::Stdio:
 		return TEXT("stdio");
-	case EUE5AnalyzerMcpTransport::Sse:
+	case EUnrealAnalyzerMcpTransport::Sse:
 		return TEXT("sse");
-	case EUE5AnalyzerMcpTransport::Http:
+	case EUnrealAnalyzerMcpTransport::Http:
 	default:
 		return TEXT("http");
 	}
 }
 
-bool FUE5ProjectAnalyzerMcpLauncher::Start(const UUE5ProjectAnalyzerSettings& Settings)
+bool FUnrealProjectAnalyzerMcpLauncher::Start(const UUnrealProjectAnalyzerSettings& Settings)
 {
 	if (IsRunning())
 	{
@@ -90,7 +90,7 @@ bool FUE5ProjectAnalyzerMcpLauncher::Start(const UUE5ProjectAnalyzerSettings& Se
 	}
 
 	// Build:
-	// uv run --directory <ServerDir> ue5-analyzer -- --transport http --mcp-host ... --mcp-port ... --mcp-path ...
+	// uv run --directory <ServerDir> unreal-analyzer -- --transport http --mcp-host ... --mcp-port ... --mcp-path ...
 	//   --cpp-source-path ... --ue-plugin-host ... --ue-plugin-port ...
 	FString Args;
 	Args += TEXT("run");
@@ -99,7 +99,7 @@ bool FUE5ProjectAnalyzerMcpLauncher::Start(const UUE5ProjectAnalyzerSettings& Se
 		Args += TEXT(" --directory ");
 		Args += Quote(ServerDir);
 	}
-	Args += TEXT(" ue5-analyzer -- ");
+	Args += TEXT(" unreal-analyzer -- ");
 	Args += TEXT("--transport ");
 	Args += Transport;
 
@@ -159,7 +159,7 @@ bool FUE5ProjectAnalyzerMcpLauncher::Start(const UUE5ProjectAnalyzerSettings& Se
 	return true;
 }
 
-void FUE5ProjectAnalyzerMcpLauncher::Stop()
+void FUnrealProjectAnalyzerMcpLauncher::Stop()
 {
 	if (!IsRunning())
 	{
@@ -174,7 +174,7 @@ void FUE5ProjectAnalyzerMcpLauncher::Stop()
 	ProcId = 0;
 }
 
-bool FUE5ProjectAnalyzerMcpLauncher::IsRunning() const
+bool FUnrealProjectAnalyzerMcpLauncher::IsRunning() const
 {
 	return ProcHandle.IsValid() && FPlatformProcess::IsProcRunning(ProcHandle);
 }

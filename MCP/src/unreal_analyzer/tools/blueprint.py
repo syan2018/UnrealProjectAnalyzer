@@ -1,7 +1,7 @@
 """
 Blueprint analysis tools.
 
-These tools communicate with the UE5 Plugin HTTP API to query
+These tools communicate with the Unreal Plugin HTTP API to query
 Blueprint metadata, hierarchy, dependencies, and graph information.
 """
 
@@ -15,7 +15,7 @@ def _ue_error(tool: str, e: Exception) -> dict:
         "ok": False,
         "error": f"UE Plugin API 调用失败（{tool}）",
         "detail": str(e),
-        "hint": "请确认 UE 编辑器已启动且启用了 UE5ProjectAnalyzer 插件，并检查 UE_PLUGIN_HOST/UE_PLUGIN_PORT 配置。",
+        "hint": "请确认 UE 编辑器已启动且启用了 UnrealProjectAnalyzer 插件，并检查 UE_PLUGIN_HOST/UE_PLUGIN_PORT 配置。",
     }
 
 

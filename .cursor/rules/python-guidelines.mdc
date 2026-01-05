@@ -21,7 +21,7 @@ globs: "*.py"
 
 ### MCP 工具定义
 
-工具函数放在 `Mcp/src/ue5_analyzer/tools/` 目录，按领域分文件：
+工具函数放在 `Mcp/src/unreal_analyzer/tools/` 目录，按领域分文件：
 - `blueprint.py` - 蓝图分析
 - `asset.py` - 资产分析
 - `cpp.py` - C++ 分析
@@ -43,7 +43,7 @@ async def tool_name(param1: str, param2: int = 0) -> dict:
     """
 ```
 
-### 与 UE5 插件通信
+### 与 Unreal 插件通信
 
 使用 `ue_client.http_client.UEPluginClient`:
 ```python
