@@ -34,69 +34,93 @@ mcp = FastMCP(
 )
 
 
+def _is_ue_plugin_available() -> bool:
+    """
+    Check if Unreal Plugin HTTP API is configured.
+    
+    Returns True if UE_PLUGIN_HOST is explicitly set (not default 'localhost').
+    This helps distinguish between:
+    - Running with UE Editor (plugin available)
+    - Running standalone for C++ analysis only
+    """
+    host = os.getenv("UE_PLUGIN_HOST")
+    # Consider available if explicitly set to any value
+    return host is not None and host.strip() != ""
+
+
 def register_tools():
     """
     Register all MCP tools.
     
     Tools are organized into groups focused on reference chain tracing:
-    - Blueprint: Blueprint analysis via Unreal Plugin
-    - Asset: Asset reference tracking via Unreal Plugin
-    - C++: Source code analysis via tree-sitter
-    - Cross-domain: Reference tracing across all domains
+    - Blueprint: Blueprint analysis via Unreal Plugin (requires UE Editor)
+    - Asset: Asset reference tracking via Unreal Plugin (requires UE Editor)
+    - C++: Source code analysis via tree-sitter (always available)
+    - Cross-domain: Reference tracing across all domains (requires UE Editor)
+    
+    If UE_PLUGIN_HOST is not configured, Blueprint/Asset/Cross-domain tools
+    will be disabled and only C++ analysis will be available.
     """
     
-    # ========================================================================
-    # Blueprint Tools
-    # ========================================================================
-    # These communicate with the Unreal Plugin HTTP API
+    ue_available = _is_ue_plugin_available()
     
-    mcp.tool(
-        description="Search blueprints by name pattern and optional class filter"
-    )(blueprint.search_blueprints)
-    
-    mcp.tool(
-        description="Get the inheritance hierarchy of a blueprint"
-    )(blueprint.get_blueprint_hierarchy)
-    
-    mcp.tool(
-        description="Get all dependencies (referenced assets/classes) of a blueprint"
-    )(blueprint.get_blueprint_dependencies)
-    
-    mcp.tool(
-        description="Get all assets/blueprints that reference this blueprint"
-    )(blueprint.get_blueprint_referencers)
-    
-    mcp.tool(
-        description="Get the node graph of a blueprint function or event graph"
-    )(blueprint.get_blueprint_graph)
-    
-    mcp.tool(
-        description="Get comprehensive details about a blueprint (variables, functions, components)"
-    )(blueprint.get_blueprint_details)
+    if not ue_available:
+        print("[Unreal Analyzer] Warning: UE_PLUGIN_HOST not configured.")
+        print("  Blueprint, Asset, and Cross-domain tools are DISABLED.")
+        print("  Only C++ source analysis tools are available.")
+        print("  To enable all tools, set --ue-plugin-host or UE_PLUGIN_HOST env var.")
+        print("")
     
     # ========================================================================
-    # Asset Tools
+    # Blueprint Tools (require Unreal Plugin)
     # ========================================================================
-    # These communicate with the Unreal Plugin HTTP API
-    
-    mcp.tool(
-        description="Search assets by name pattern and optional type filter"
-    )(asset.search_assets)
-    
-    mcp.tool(
-        description="Get all assets that this asset references"
-    )(asset.get_asset_references)
-    
-    mcp.tool(
-        description="Get all assets that reference this asset"
-    )(asset.get_asset_referencers)
-    
-    mcp.tool(
-        description="Get metadata information about an asset"
-    )(asset.get_asset_metadata)
+    if ue_available:
+        mcp.tool(
+            description="Search blueprints by name pattern and optional class filter"
+        )(blueprint.search_blueprints)
+        
+        mcp.tool(
+            description="Get the inheritance hierarchy of a blueprint"
+        )(blueprint.get_blueprint_hierarchy)
+        
+        mcp.tool(
+            description="Get all dependencies (referenced assets/classes) of a blueprint"
+        )(blueprint.get_blueprint_dependencies)
+        
+        mcp.tool(
+            description="Get all assets/blueprints that reference this blueprint"
+        )(blueprint.get_blueprint_referencers)
+        
+        mcp.tool(
+            description="Get the node graph of a blueprint function or event graph"
+        )(blueprint.get_blueprint_graph)
+        
+        mcp.tool(
+            description="Get comprehensive details about a blueprint (variables, functions, components)"
+        )(blueprint.get_blueprint_details)
     
     # ========================================================================
-    # C++ Analysis Tools
+    # Asset Tools (require Unreal Plugin)
+    # ========================================================================
+    if ue_available:
+        mcp.tool(
+            description="Search assets by name pattern and optional type filter"
+        )(asset.search_assets)
+        
+        mcp.tool(
+            description="Get all assets that this asset references"
+        )(asset.get_asset_references)
+        
+        mcp.tool(
+            description="Get all assets that reference this asset"
+        )(asset.get_asset_referencers)
+        
+        mcp.tool(
+            description="Get metadata information about an asset"
+        )(asset.get_asset_metadata)
+    
+    # ========================================================================
+    # C++ Analysis Tools (always available)
     # ========================================================================
     # These use tree-sitter for local source analysis
     # All focused on understanding C++ ↔ Blueprint boundaries
@@ -126,17 +150,22 @@ def register_tools():
     )(cpp.get_cpp_blueprint_exposure)
     
     # ========================================================================
-    # Cross-Domain Tools
+    # Cross-Domain Tools (require Unreal Plugin)
     # ========================================================================
-    # These coordinate between Blueprint, Asset, and C++ analysis
+    if ue_available:
+        mcp.tool(
+            description="Trace a complete reference chain across Blueprint/Asset/C++ boundaries"
+        )(cross_domain.trace_reference_chain)
+        
+        mcp.tool(
+            description="Find all Blueprints and Assets that use a specific C++ class"
+        )(cross_domain.find_cpp_class_usage)
     
-    mcp.tool(
-        description="Trace a complete reference chain across Blueprint/Asset/C++ boundaries"
-    )(cross_domain.trace_reference_chain)
-    
-    mcp.tool(
-        description="Find all Blueprints and Assets that use a specific C++ class"
-    )(cross_domain.find_cpp_class_usage)
+    # Print summary
+    if ue_available:
+        print("[Unreal Analyzer] All tools registered (Blueprint + Asset + C++ + Cross-domain)")
+    else:
+        print("[Unreal Analyzer] C++ analysis tools registered (6 tools)")
 
 
 def initialize_from_environment():

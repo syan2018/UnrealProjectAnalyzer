@@ -1,142 +1,177 @@
 # Unreal Project Analyzer
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 MCP Server for analyzing Unreal Engine 5 projects - Blueprint, Asset, and C++ source code.
 
-> **Goal**: Let AI understand the complete picture of a Unreal project by tracing reference chains across Blueprint ↔ C++ ↔ Asset boundaries.
+> **Goal**: Let AI understand the complete picture of an Unreal project by tracing reference chains across Blueprint ↔ C++ ↔ Asset boundaries.
+
+**[中文文档](README_CN.md)**
 
 ## Features
 
-- **Blueprint Analysis**: Hierarchy, dependencies, graph inspection
+- **Blueprint Analysis**: Hierarchy, dependencies, graph inspection, variables, components
 - **Asset Reference Tracking**: Find what uses what, and what is used by what
 - **C++ Source Analysis**: Class structure, UPROPERTY/UFUNCTION detection (tree-sitter based)
 - **Cross-Domain Queries**: Trace complete reference chains across all domains
+- **Editor Integration**: Start/Stop MCP Server directly from Unreal Editor menu
 
-## Architecture
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                         AI Agent (Cursor)                         │
-└────────────────────────────────┬─────────────────────────────────┘
-                                 │ MCP Protocol
-                                 ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    MCP Server (Python/FastMCP)                    │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │              C++ Source Analyzer (tree-sitter)              │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────┬─────────────────────────────────┘
-                                 │ HTTP
-                                 ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                  UnrealProjectAnalyzer Plugin                        │
-│  ┌─────────────────────────┐  ┌────────────────────────────────┐ │
-│  │   C++ HTTP Server       │  │   Python Bridge (auto-start)   │ │
-│  │   :8080                 │  │   (Unreal Python API)          │ │
-│  └─────────────────────────┘  └────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-## Installation
+## Quick Start (Recommended)
 
 ### Prerequisites
 
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Unreal Engine 5.3+
+- **Unreal Engine 5.3+**
+- **[uv](https://docs.astral.sh/uv/)** - Python package manager (required)
 
-### MCP Server Setup
+### 1. Install the Plugin
 
-```bash
-cd UnrealMCP
+Copy the `UnrealProjectAnalyzer` folder to your Unreal project's `Plugins/` directory:
 
-# Install dependencies
-uv sync
-
-# Run the MCP server
-uv run unreal-analyzer
+```
+YourProject/
+├── Plugins/
+│   └── UnrealProjectAnalyzer/    ← this folder
+│       ├── Source/
+│       ├── Mcp/
+│       └── UnrealProjectAnalyzer.uplugin
 ```
 
-### Run with CLI Args (recommended)
+### 2. Configure uv Path
 
-CLI 参数会覆盖环境变量（单次运行更方便）：
+1. Open Unreal Editor
+2. Go to **Edit → Project Settings → Plugins → Unreal Project Analyzer**
+3. Set **Uv Executable** to your uv installation path, e.g.:
+   - Windows: `C:\Users\YourName\.local\bin\uv.exe` or `C:\Users\YourName\anaconda3\Scripts\uv.exe`
+   - macOS/Linux: `/usr/local/bin/uv` or `~/.local/bin/uv`
 
-```bash
-uv run unreal-analyzer -- \
-  --cpp-source-path "/path/to/LyraStarterGame/Source" \
-  --ue-plugin-host "localhost" \
-  --ue-plugin-port 8080
-```
+### 3. Start MCP Server
 
-### Run as HTTP MCP Server (optional)
+1. In Unreal Editor menu: **Tools → Unreal Project Analyzer → Start MCP Server**
+2. Check Output Log for: `LogMcpServer: MCP Server process started`
+3. Copy MCP URL via: **Tools → Unreal Project Analyzer → Copy MCP URL**
 
-默认 `unreal-analyzer` 以 **stdio** 方式运行（适配 Cursor 的 MCP 集成）。
-如果你希望把 MCP Server 作为一个本机 HTTP 服务暴露（便于“快捷连接”或调试），可以使用：
+### 4. Connect from Cursor
 
-```bash
-uv run unreal-analyzer -- \
-  --transport http \
-  --mcp-host 127.0.0.1 \
-  --mcp-port 8000 \
-  --mcp-path /mcp
-```
-
-### Unreal Plugin Setup
-
-1. Copy this repository folder to your Unreal project's `Plugins/` directory
-2. Ensure the folder name is `UnrealProjectAnalyzer/` (matches `UnrealProjectAnalyzer.uplugin`)
-3. Enable the plugin in Unreal Editor (Edit → Plugins → Unreal Project Analyzer)
-4. Restart the Editor
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# Project C++ source root (recommended)
-CPP_SOURCE_PATH=/path/to/YourProject/Source
-
-# Optional: Unreal Engine install (for engine source analysis)
-UNREAL_ENGINE_PATH=/path/to/UE_5.3
-
-# Unreal Plugin API location
-UE_PLUGIN_HOST=localhost
-UE_PLUGIN_PORT=8080
-```
-
-### MCP Client Configuration (Cursor)
-
-Add to your MCP settings:
+Add to your Cursor MCP settings (use the copied URL):
 
 ```json
 {
   "mcpServers": {
     "unreal-project-analyzer": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/path/to/UnrealMCP",
-        "unreal-analyzer",
-        "--",
-        "--cpp-source-path",
-        "/path/to/YourProject/Source"
-      ]
+      "url": "http://127.0.0.1:19840/mcp"
     }
   }
 }
 ```
 
-## Usage
+## Alternative: Run MCP Server Manually
 
-### Example: Trace a GAS Ability
+If you prefer running the MCP Server outside of Unreal Editor:
+
+```bash
+cd /path/to/UnrealProjectAnalyzer
+
+# Install dependencies
+uv sync
+
+# Run with stdio (for Cursor MCP integration)
+uv run unreal-analyzer -- \
+  --cpp-source-path "/path/to/YourProject/Source" \
+  --ue-plugin-host "localhost" \
+  --ue-plugin-port 8080
+
+# Or run as HTTP server (for quick connect)
+uv run unreal-analyzer -- \
+  --transport http \
+  --mcp-host 127.0.0.1 \
+  --mcp-port 19840 \
+  --cpp-source-path "/path/to/YourProject/Source"
+```
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                         AI Agent (Cursor)                        │
+└────────────────────────────────┬─────────────────────────────────┘
+                                 │ MCP Protocol
+                                 ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    MCP Server (Python/FastMCP)                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │              C++ Source Analyzer (tree-sitter)             │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────┬─────────────────────────────────┘
+                                 │ HTTP
+                                 ▼
+┌──────────────────────────────────────────────────────────────────┐
+│              UnrealProjectAnalyzer Plugin (Editor)               │
+│  ┌─────────────────────────┐  ┌────────────────────────────────┐ │
+│  │   HTTP Server (:8080)   │  │   MCP Launcher (uv process)    │ │
+│  │   Blueprint/Asset API   │  │   Auto-start from Editor       │ │
+│  └─────────────────────────┘  └────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## Available Tools
+
+### Blueprint Tools
+| Tool | Description |
+|------|-------------|
+| `search_blueprints` | Search blueprints by name pattern and class filter |
+| `get_blueprint_hierarchy` | Get class inheritance chain |
+| `get_blueprint_dependencies` | Get all dependencies |
+| `get_blueprint_referencers` | Get all referencers |
+| `get_blueprint_graph` | Get node graph (EventGraph, functions) |
+| `get_blueprint_details` | Get variables, functions, components |
+
+### Asset Tools
+| Tool | Description |
+|------|-------------|
+| `search_assets` | Search assets by name/type |
+| `get_asset_references` | Get referenced assets |
+| `get_asset_referencers` | Get referencing assets |
+| `get_asset_metadata` | Get asset metadata |
+
+### C++ Analysis Tools
+| Tool | Description |
+|------|-------------|
+| `analyze_cpp_class` | Analyze class structure (methods, properties) |
+| `get_cpp_class_hierarchy` | Get inheritance hierarchy |
+| `search_cpp_code` | Search source code with regex |
+| `find_cpp_references` | Find identifier references |
+| `detect_ue_patterns` | Detect UPROPERTY/UFUNCTION patterns |
+| `get_cpp_blueprint_exposure` | Get Blueprint-exposed API |
+
+### Cross-Domain Tools
+| Tool | Description |
+|------|-------------|
+| `trace_reference_chain` | Trace complete reference chain across domains |
+| `find_cpp_class_usage` | Find C++ class usage in Blueprints |
+
+## Plugin Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `Auto Start MCP Server` | Start MCP when Editor launches | `false` |
+| `Uv Executable` | Path to uv binary | `uv` |
+| `Capture Server Output` | Print MCP output to UE Log | `true` |
+| `Transport` | MCP transport mode | `http` |
+| `MCP Port` | HTTP/SSE listen port | `19840` |
+| `Cpp Source Path` | Project C++ source root | Auto-detect |
+| `Unreal Engine Source Path` | Engine source for analysis | Auto-detect |
+
+## Example Usage
+
+### Trace a GAS Ability
 
 ```
 User: 帮我追踪 GA_Hero_Dash 这个能力是怎么触发和执行的
 
 Agent:
-[Uses search_blueprints, get_blueprint_details, get_blueprint_dependencies...]
+[Uses search_blueprints, get_blueprint_details, get_blueprint_graph...]
 
-GA_Hero_Dash 的完整流程：
+GA_Hero_Dash 完整流程：
 
 触发路径：
 玩家按下 Shift → IA_Dash → IC_Default_KBM 
@@ -144,64 +179,16 @@ GA_Hero_Dash 的完整流程：
   → ULyraAbilitySystemComponent::TryActivateAbility(Ability.Dash)
 
 执行逻辑 (EventGraph):
-1. ActivateAbility
-2. Apply Root Motion
-3. Play Montage
-4. EndAbility
+1. ActivateAbility → IsLocallyControlled?
+2. SelectDirectionalMontage → Set Direction
+3. CommitAbility → PlayMontageAndWait
+4. ApplyRootMotionConstantForce
+5. Delay → EndAbility
 
 关联资产：
-- GE_Dash_Cost, GE_Dash_Cooldown
-- AM_Hero_Dash, S_Dash_Whoosh
+- GE_HeroDash_Cooldown (GameplayEffect)
+- Dash_Fwd/Bwd/Left/Right Montages
 ```
-
-### Example: Find Asset References
-
-```
-User: SK_Mannequin 被哪些地方用到了？
-
-Agent:
-[Uses get_asset_referencers, trace_reference_chain...]
-
-SK_Mannequin 引用情况：
-
-直接引用:
-├─ SKM_Mannequin (SkeletalMesh)
-├─ ABP_Mannequin (AnimBlueprint)
-└─ Phys_Mannequin (PhysicsAsset)
-
-间接引用 (通过 SKM_Mannequin):
-├─ B_Hero_ShooterMannequin
-├─ B_Hero_Default
-└─ ... (共 12 个蓝图)
-```
-
-## Available Tools
-
-### Blueprint Tools
-- `search_blueprints` - Search blueprints by name/class
-- `get_blueprint_hierarchy` - Get class inheritance chain
-- `get_blueprint_dependencies` - Get all dependencies
-- `get_blueprint_referencers` - Get all referencers
-- `get_blueprint_graph` - Get node graph
-- `get_blueprint_details` - Get comprehensive details
-
-### Asset Tools
-- `search_assets` - Search assets by name/type
-- `get_asset_references` - Get referenced assets
-- `get_asset_referencers` - Get referencing assets
-- `get_asset_metadata` - Get asset metadata
-
-### C++ Analysis Tools
-- `analyze_cpp_class` - Analyze class structure
-- `get_cpp_class_hierarchy` - Get inheritance hierarchy
-- `search_cpp_code` - Search source code
-- `find_cpp_references` - Find code references
-- `detect_ue_patterns` - Detect UPROPERTY/UFUNCTION
-- `get_cpp_blueprint_exposure` - Get Blueprint-exposed API
-
-### Cross-Domain Tools
-- `trace_reference_chain` - Trace complete reference chain
-- `find_cpp_class_usage` - Find C++ class usage in Blueprints
 
 ## Development
 
@@ -216,13 +203,12 @@ uv run pytest
 uv run ruff check .
 ```
 
-## Scripts
+## Acknowledgements
 
-### Lyra Smoke Test
+This project was inspired by and references implementations from:
 
-```bash
-uv run python Mcp/scripts/lyra_smoke_test.py --cpp-source-path "/path/to/LyraStarterGame/Source"
-```
+- **[unreal-analyzer-mcp](https://github.com/ayeletstudioindia/unreal-analyzer-mcp)** - C++ source code analysis approach using tree-sitter
+- **[ue5-mcp](https://github.com/cutehusky/ue5-mcp)** - Unreal Editor HTTP API exposure pattern
 
 ## License
 

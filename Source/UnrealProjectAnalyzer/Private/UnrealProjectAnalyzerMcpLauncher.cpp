@@ -327,3 +327,4 @@ void FUnrealProjectAnalyzerMcpLauncher::ReadPipeOutput()
 		}
 	}
 }
+
