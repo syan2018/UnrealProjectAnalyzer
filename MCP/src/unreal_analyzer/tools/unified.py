@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from ..config import get_config
 from ..cpp_analyzer import get_analyzer
 from ..ue_client import get_client
 from ..ue_client.http_client import UEPluginError
@@ -78,44 +77,31 @@ async def search(
     query: Annotated[
         str,
         (
-            "Search query. For C++: default query_mode='smart' splits on whitespace into tokens, "
-            "or treats it as regex if it looks like a regex. "
-            "For Blueprint/Asset: treated as a wildcard name pattern."
+            "Search query. C++ uses smart matching, Blueprint/Asset uses wildcards.\n"
+            "Examples: 'ULyraHealthComponent', 'GA_Weapon*', '*Damage*'"
         ),
     ],
     domain: Annotated[
         DomainType,
         (
-            "Domain to search: 'cpp' | 'blueprint' | 'asset' | 'all'. "
-            "Ignored if 'domains' is provided."
+            "Domain to search: 'cpp' | 'blueprint' | 'asset' | 'all' (default)."
         ),
     ] = "all",
-    domains: Annotated[
-        list[Literal["cpp", "blueprint", "asset"]] | None,
-        "Optional explicit list of domains. If provided, overrides 'domain'.",
-    ] = None,
     scope: Annotated[
         ScopeType,
-        (
-            "Search scope for C++ and for filtering UE assets: "
-            "'project' (default) | 'engine' | 'all'."
-        ),
+        "Search scope: 'project' (default) | 'engine' | 'all'.",
     ] = "project",
-    file_pattern: Annotated[str, "C++ file glob pattern (e.g. '*.{h,cpp}')"] = "*.{h,cpp}",
-    asset_type: Annotated[str, "Asset class filter (UE asset search only)"] = "",
-    class_filter: Annotated[str, "Blueprint parent class filter (Blueprint search only)"] = "",
-    max_results: Annotated[int, "Max results per domain"] = 100,
-    include_comments: Annotated[bool, "Include comment lines in C++ search"] = True,
-    query_mode: Annotated[
-        Literal["smart", "regex", "tokens"],
-        "C++ query mode: 'smart' (default) | 'regex' | 'tokens'.",
-    ] = "smart",
+    type_filter: Annotated[
+        str,
+        (
+            "Type/class filter. For assets: 'Blueprint', 'Material', etc.\n"
+            "For blueprints: parent class like 'GameplayAbility', 'Character'."
+        ),
+    ] = "",
+    max_results: Annotated[int, "Max results per domain (default: 100)"] = 100,
 ) -> dict:
     """
     Unified search across C++, Blueprint, and Asset domains.
-
-    Returns a consistent result shape with per-domain matches + counts, plus
-    warnings/tips to reduce confusion in common misconfiguration cases.
 
     Returns:
         A dict containing:
@@ -124,23 +110,15 @@ async def search(
         - scope: str
         - domains_searched: list[str]
         - total_count: int
-        - errors: list[dict]
-        - warnings: list[str]
-        - tips: list[str]
-        - config_summary: dict (best-effort)
         - cpp_matches / blueprint_matches / asset_matches (if searched)
     """
-    # Resolve domains to search.
-    resolved_domains: list[Literal["cpp", "blueprint", "asset"]] = []
-    if domains is not None:
-        resolved_domains = [d for d in domains if d in ("cpp", "blueprint", "asset")]
+    # Resolve domains to search
+    if domain == "all":
+        resolved_domains: list[Literal["cpp", "blueprint", "asset"]] = ["cpp", "blueprint", "asset"]
+    elif domain in ("cpp", "blueprint", "asset"):
+        resolved_domains = [domain]
     else:
-        if domain == "all":
-            resolved_domains = ["cpp", "blueprint", "asset"]
-        elif domain in ("cpp", "blueprint", "asset"):
-            resolved_domains = [domain]
-        else:
-            resolved_domains = ["cpp", "blueprint", "asset"]
+        resolved_domains = ["cpp", "blueprint", "asset"]
 
     results = {
         "query": query,
@@ -149,29 +127,7 @@ async def search(
         "total_count": 0,
         "ok": True,
         "errors": [],
-        "warnings": [],
-        "tips": [],
-        "query_mode": query_mode,
     }
-
-    # Add config transparency to reduce confusion about what "project" means in practice.
-    try:
-        cfg = get_config()
-        results["config_summary"] = {
-            "cpp_project_paths": cfg.get_project_paths(),
-            "cpp_engine_paths": cfg.get_engine_paths(),
-            "default_scope": str(cfg.default_scope),
-        }
-        # Warn if project path looks like a plugin directory (common misconfig).
-        for p in cfg.get_project_paths():
-            if "plugins" in p.lower() and "unrealprojectanalyzer" in p.lower():
-                results["warnings"].append(
-                    "CPP_SOURCE_PATH seems to point to a plugin folder. "
-                    "Recommended: set it to <Project>/Source."
-                )
-                break
-    except Exception:
-        pass
 
     # C++ search
     if "cpp" in resolved_domains:
@@ -179,17 +135,15 @@ async def search(
             analyzer = get_analyzer()
             cpp_result = await analyzer.search_code(
                 query,
-                file_pattern,
-                include_comments,
+                "*.{h,cpp}",  # Default file pattern
+                True,  # Always include comments
                 scope=scope,
                 max_results=max_results,
-                query_mode=query_mode,
+                query_mode="smart",  # Always smart mode
             )
             results["cpp_matches"] = cpp_result.get("matches", [])
             results["cpp_count"] = cpp_result.get("count", 0)
             results["cpp_truncated"] = cpp_result.get("truncated", False)
-            results["cpp_searched_paths"] = cpp_result.get("searched_paths", [])
-            results["cpp_query_mode_resolved"] = cpp_result.get("query_mode_resolved")
             results["total_count"] += results["cpp_count"]
         except Exception as e:
             results["cpp_matches"] = []
@@ -203,47 +157,35 @@ async def search(
         try:
             client = get_client()
             tokens = _split_query_tokens(query)
-            # UE endpoint is name-wildcard based; multi-word queries should be tokenized.
             patterns = tokens if tokens else [query]
 
             merged: dict[str, dict] = {}
             for pat in patterns:
                 bp_result = await client.get(
                     "/blueprint/search",
-                    {
-                        "pattern": pat,
-                        "class": class_filter,
-                    },
+                    {"pattern": pat, "class": type_filter},
                 )
                 for m in bp_result.get("matches", []):
                     path = str(m.get("path", ""))
-                    if not path:
-                        continue
-                    merged[path] = m
+                    if path:
+                        merged[path] = m
 
             matches = list(merged.values())
 
-            # Apply scope filter (exclude engine paths for project scope)
+            # Apply scope filter
             if scope == "project":
                 matches = [m for m in matches if not m.get("path", "").startswith("/Script/")]
             elif scope == "engine":
                 matches = [m for m in matches if m.get("path", "").startswith("/Script/")]
 
-            # Score & sort for multi-token queries.
+            # Score & sort for multi-token queries
             if len(patterns) > 1:
                 for m in matches:
                     m["relevance_score"] = _score_name_tokens(str(m.get("name", "")), patterns)
                 matches.sort(key=lambda x: int(x.get("relevance_score", 0)), reverse=True)
 
-            # Limit results
-            if len(matches) > max_results:
-                matches = matches[:max_results]
-                results["blueprint_truncated"] = True
-            else:
-                results["blueprint_truncated"] = False
-
-            results["blueprint_matches"] = matches
-            results["blueprint_count"] = len(matches)
+            results["blueprint_matches"] = matches[:max_results]
+            results["blueprint_count"] = len(results["blueprint_matches"])
             results["total_count"] += results["blueprint_count"]
         except UEPluginError as e:
             results["blueprint_matches"] = []
@@ -254,7 +196,7 @@ async def search(
         except Exception as e:
             results["blueprint_matches"] = []
             results["blueprint_count"] = 0
-            results["blueprint_error"] = f"Unexpected error: {e}"
+            results["blueprint_error"] = str(e)
             results["ok"] = False
             results["errors"].append({"domain": "blueprint", "error": str(e)})
 
@@ -269,50 +211,37 @@ async def search(
             for pat in patterns:
                 asset_result = await client.get(
                     "/asset/search",
-                    {
-                        "pattern": pat,
-                        "type": asset_type,
-                    },
+                    {"pattern": pat, "type": type_filter},
                 )
                 for m in asset_result.get("matches", []):
                     path = str(m.get("path", ""))
-                    if not path:
-                        continue
-                    merged[path] = m
+                    if path:
+                        merged[path] = m
 
             matches = list(merged.values())
 
             # Apply scope filter
             if scope == "project":
                 matches = [
-                    m
-                    for m in matches
+                    m for m in matches
                     if not m.get("path", "").startswith("/Script/")
                     and not m.get("path", "").startswith("/Engine/")
                 ]
             elif scope == "engine":
                 matches = [
-                    m
-                    for m in matches
+                    m for m in matches
                     if m.get("path", "").startswith("/Script/")
                     or m.get("path", "").startswith("/Engine/")
                 ]
 
-            # Score & sort for multi-token queries.
+            # Score & sort for multi-token queries
             if len(patterns) > 1:
                 for m in matches:
                     m["relevance_score"] = _score_name_tokens(str(m.get("name", "")), patterns)
                 matches.sort(key=lambda x: int(x.get("relevance_score", 0)), reverse=True)
 
-            # Limit results
-            if len(matches) > max_results:
-                matches = matches[:max_results]
-                results["asset_truncated"] = True
-            else:
-                results["asset_truncated"] = False
-
-            results["asset_matches"] = matches
-            results["asset_count"] = len(matches)
+            results["asset_matches"] = matches[:max_results]
+            results["asset_count"] = len(results["asset_matches"])
             results["total_count"] += results["asset_count"]
         except UEPluginError as e:
             results["asset_matches"] = []
@@ -323,52 +252,35 @@ async def search(
         except Exception as e:
             results["asset_matches"] = []
             results["asset_count"] = 0
-            results["asset_error"] = f"Unexpected error: {e}"
+            results["asset_error"] = str(e)
             results["ok"] = False
             results["errors"].append({"domain": "asset", "error": str(e)})
-
-    # Add tips when nothing found.
-    if results.get("total_count", 0) == 0:
-        if (
-            "cpp" in resolved_domains
-            and query_mode in ("smart", "tokens")
-            and any(ch.isspace() for ch in query)
-        ):
-            results["tips"].append(
-                "C++ 搜索默认按空格分词并按命中度排序；建议先用更少关键词，"
-                "如：LyraGameplayAbility / Damage / Execution"
-            )
-        if "blueprint" in resolved_domains or "asset" in resolved_domains:
-            # Human-facing usage tips (Chinese is fine for end users).
-            results["tips"].extend(
-                [
-                    "Blueprint/Asset search is name-based wildcard matching. Examples:",
-                    "  - 'GA_*' finds GameplayAbilities with GA_ prefix",
-                    "  - '*Weapon*' finds assets with 'Weapon' in name",
-                    "  - '*Fire*' finds assets with 'Fire' in name",
-                    f"Current query: {query!r}",
-                    "Try: 'GA_*', '*Weapon*', '*Fire*'",
-                ]
-            )
 
     return results
 
 
 async def get_hierarchy(
-    name: Annotated[str, "C++ class name OR Blueprint path (e.g. '/Game/...')"],
+    name: Annotated[
+        str,
+        (
+            "C++ class name OR Blueprint asset path.\n"
+            "Examples: 'ULyraHealthComponent', '/Game/BP_Hero'"
+        ),
+    ],
     domain: Annotated[
-        Literal["cpp", "blueprint"], "Hierarchy domain: 'cpp' or 'blueprint'"
+        Literal["cpp", "blueprint"],
+        "Hierarchy domain: 'cpp' (default) | 'blueprint'.",
     ] = "cpp",
-    scope: Annotated[ScopeType, "C++ search scope: 'project' | 'engine' | 'all'"] = "project",
-    include_interfaces: Annotated[bool, "Include implemented interfaces (C++ only)"] = True,
+    scope: Annotated[
+        ScopeType,
+        "C++ search scope: 'project' (default) | 'engine' | 'all'.",
+    ] = "project",
 ) -> dict:
-    """
-    Get inheritance hierarchy for a class (C++ or Blueprint).
-    """
+    """Get inheritance hierarchy for a class (C++ or Blueprint)."""
     if domain == "cpp":
         analyzer = get_analyzer()
-        return await analyzer.find_class_hierarchy(name, include_interfaces, scope=scope)
-    else:  # blueprint
+        return await analyzer.find_class_hierarchy(name, True, scope=scope)  # Always include interfaces
+    else:
         try:
             client = get_client()
             return await client.get("/blueprint/hierarchy", {"bp_path": name})
@@ -378,16 +290,23 @@ async def get_hierarchy(
 
 async def get_references(
     path: Annotated[
-        str, "Identifier or asset path (Blueprint/Asset: '/Game/...'; C++: identifier)"
+        str,
+        (
+            "Identifier or asset path.\n"
+            "Examples: 'ULyraHealthComponent', '/Game/BP_Player'"
+        ),
     ],
     domain: Annotated[
         Literal["cpp", "blueprint", "asset"],
-        "Reference domain: 'cpp' | 'blueprint' | 'asset'",
+        "Reference domain: 'cpp' | 'blueprint' | 'asset' (default).",
     ] = "asset",
-    scope: Annotated[ScopeType, "C++ search scope: 'project' | 'engine' | 'all'"] = "project",
+    scope: Annotated[
+        ScopeType,
+        "C++ search scope: 'project' (default) | 'engine' | 'all'.",
+    ] = "project",
     direction: Annotated[
         Literal["outgoing", "incoming", "both"],
-        "Direction: outgoing (references), incoming (referencers), both",
+        "Direction: 'outgoing' | 'incoming' | 'both' (default).",
     ] = "both",
 ) -> dict:
     """
@@ -430,11 +349,21 @@ async def get_references(
 
 
 async def get_details(
-    path: Annotated[str, "C++ class name OR Blueprint/Asset path (e.g. '/Game/...')"],
+    path: Annotated[
+        str,
+        (
+            "C++ class/file OR Blueprint/Asset path.\n"
+            "Examples: 'ULyraHealthComponent', '/Game/BP_Player'"
+        ),
+    ],
     domain: Annotated[
-        Literal["cpp", "blueprint", "asset"], "Details domain: 'cpp' | 'blueprint' | 'asset'"
+        Literal["cpp", "blueprint", "asset"],
+        "Details domain: 'cpp' | 'blueprint' (default) | 'asset'.",
     ] = "blueprint",
-    scope: Annotated[ScopeType, "C++ search scope: 'project' | 'engine' | 'all'"] = "project",
+    scope: Annotated[
+        ScopeType,
+        "C++ search scope: 'project' (default) | 'engine' | 'all'.",
+    ] = "project",
 ) -> dict:
     """
     Get detailed information about an item.

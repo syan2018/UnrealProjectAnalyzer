@@ -846,6 +846,19 @@ class CppAnalyzer:
                 "query_mode": query_mode,
             }
 
+        # Normalize scope early (for safety filtering later).
+        cfg = get_config()
+        norm_scope: SearchScope
+        if scope is None:
+            norm_scope = cfg.default_scope
+        elif isinstance(scope, SearchScope):
+            norm_scope = scope
+        else:
+            try:
+                norm_scope = SearchScope(str(scope))
+            except Exception:
+                norm_scope = SearchScope.PROJECT
+
         results = []
         lowered_query = query.strip()
 
@@ -965,6 +978,41 @@ class CppAnalyzer:
         if query_mode_resolved == "tokens":
             results.sort(key=lambda m: int(m.get("score", 0)), reverse=True)
 
+        # --------------------------------------------------------------------
+        # SAFETY: Enforce scope filtering on returned matches.
+        #
+        # Even if configuration is wrong (e.g. engine path accidentally included in
+        # project paths), this ensures `scope='project'` never returns engine files
+        # outside the configured project roots (and vice versa).
+        # --------------------------------------------------------------------
+        def _is_under_any_root(file_path: str, roots: list[str]) -> bool:
+            try:
+                p = Path(file_path).resolve()
+            except Exception:
+                return False
+            for r in roots:
+                try:
+                    root = Path(r).resolve()
+                except Exception:
+                    continue
+                # `is_relative_to` is 3.9+, and we are on 3.12 in uv typically.
+                try:
+                    if p.is_relative_to(root):
+                        return True
+                except Exception:
+                    # Fallback for platforms where is_relative_to might fail
+                    if str(p).lower().startswith(str(root).lower().rstrip("\\/") + "\\"):
+                        return True
+            return False
+
+        if norm_scope == SearchScope.PROJECT:
+            proj_roots = cfg.get_project_paths()
+            results = [m for m in results if _is_under_any_root(str(m.get("file", "")), proj_roots)]
+        elif norm_scope == SearchScope.ENGINE:
+            eng_roots = cfg.get_engine_paths()
+            results = [m for m in results if _is_under_any_root(str(m.get("file", "")), eng_roots)]
+        # SearchScope.ALL: keep as-is.
+
         return {
             "matches": results,
             "count": len(results),
@@ -1021,7 +1069,9 @@ class CppAnalyzer:
         self,
         file_path: str,
         *,
-        max_preview_chars: int = 8000,
+        max_preview_chars: int = 50000,  # 增加到 50KB，足够大多数文件
+        start_line: int | None = None,  # 可选：从指定行开始
+        end_line: int | None = None,    # 可选：到指定行结束
     ) -> dict:
         """
         Analyze a single C++ file path (header/source).
@@ -1029,11 +1079,20 @@ class CppAnalyzer:
         This is a lightweight file-oriented API used by unified.get_details when the user provides
         a file path (e.g., D:\\...\\LyraHealthComponent.h).
 
+        Args:
+            file_path: Path to the C++ file
+            max_preview_chars: Maximum characters to include in preview (default: 50000)
+            start_line: Optional starting line number (1-based)
+            end_line: Optional ending line number (1-based, inclusive)
+
         Returns:
             - file: absolute file path
             - exists: bool
             - size_bytes: int | None
-            - preview: str (truncated)
+            - preview: str (truncated or line-filtered)
+            - is_truncated: bool
+            - total_chars: int
+            - preview_chars: int
             - includes: list[str]
             - classes: list[dict] (name, line)
             - functions: list[dict] (name, line)
@@ -1049,6 +1108,13 @@ class CppAnalyzer:
             size_bytes = None
 
         content = path.read_text(encoding="utf-8", errors="ignore")
+        
+        # Apply line filtering if requested
+        if start_line is not None or end_line is not None:
+            lines = content.splitlines(keepends=True)
+            start_idx = (start_line - 1) if start_line else 0
+            end_idx = end_line if end_line else len(lines)
+            content = "".join(lines[start_idx:end_idx])
 
         # Parse AST (cached)
         tree = await self._parse_file(str(path))
@@ -1104,14 +1170,19 @@ class CppAnalyzer:
         ue_patterns = detect_ue_pattern(content, str(path))
 
         preview = content[: max(0, int(max_preview_chars))]
-        if len(content) > max_preview_chars:
-            preview += "\n... (truncated)"
+        is_truncated = len(content) > max_preview_chars
+        if is_truncated:
+            remaining_bytes = len(content) - max_preview_chars
+            preview += f"\n... (truncated, {remaining_bytes} more bytes)"
 
         return {
             "file": str(path.resolve()),
             "exists": True,
             "size_bytes": size_bytes,
             "preview": preview,
+            "is_truncated": is_truncated,
+            "total_chars": len(content),
+            "preview_chars": len(preview),
             "includes": includes,
             "classes": classes,
             "functions": functions,

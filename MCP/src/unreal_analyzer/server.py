@@ -25,7 +25,7 @@ from .tools import blueprint, cpp, cross_domain, unified
 # Initialize MCP server
 mcp = FastMCP(
     name="UnrealProjectAnalyzer",
-    version="0.3.0",  # 精简工具集版本
+    version="0.3.1",  # 用户反馈优化版本
 )
 
 
@@ -39,7 +39,7 @@ def register_tools():
     """
     Register MCP tools.
 
-    Minimal toolset (9 total):
+    Minimal toolset (8 total):
 
     Core tools (4):
     - search: Unified search (C++/Blueprint/Asset)
@@ -47,11 +47,10 @@ def register_tools():
     - get_references: Reference relationships (incoming/outgoing/both)
     - get_details: Detailed info (C++/Blueprint/Asset)
 
-    Specialized tools (5):
+    Specialized tools (4):
     - get_blueprint_graph: Blueprint graph (EventGraph/function graphs)
-    - detect_ue_patterns: UPROPERTY/UFUNCTION/UCLASS detection
-    - get_cpp_blueprint_exposure: C++ Blueprint-exposed API summary
-    - trace_reference_chain: Cross-domain reference chain (async/chunked)
+    - detect_ue_patterns: UE macro detection (format='detailed'|'summary')
+    - trace_reference_chain: Cross-domain reference chain
     - find_cpp_class_usage: C++ class usage (Blueprint + C++)
     """
 
@@ -86,19 +85,14 @@ def register_tools():
             blueprint.get_blueprint_graph
         )
 
-    # UE 模式检测 - 分析 UPROPERTY/UFUNCTION 等宏
-    mcp.tool(description="Detect UE macro patterns in a C++ file (UPROPERTY/UFUNCTION/UCLASS)")(
+    # UE 模式检测 - 分析 UPROPERTY/UFUNCTION 等宏 (format='detailed'|'summary')
+    mcp.tool(description="Detect UE macros (UPROPERTY/UFUNCTION/UCLASS) in a C++ file")(
         cpp.detect_ue_patterns
-    )
-
-    # Blueprint 暴露分析 - 专门分析 C++ 到蓝图的接口
-    mcp.tool(description="Get Blueprint-exposed API summary from a C++ header")(
-        cpp.get_cpp_blueprint_exposure
     )
 
     # 跨域引用链 - 需要递归追踪
     if ue_available:
-        mcp.tool(description="Trace full reference chain (Blueprint/Asset/C++)")(
+        mcp.tool(description="Trace full reference chain (Blueprint/Asset)")(
             cross_domain.trace_reference_chain
         )
 
@@ -107,7 +101,7 @@ def register_tools():
         )
 
     # 打印摘要
-    tool_count = 4 + 2  # 核心工具 + C++ 特殊工具
+    tool_count = 4 + 1  # 核心工具 + C++ 特殊工具
     if ue_available:
         tool_count += 3  # 蓝图节点图 + 跨域工具
         print(f"[Unreal Analyzer] Registered {tool_count} tools (minimal toolset).")

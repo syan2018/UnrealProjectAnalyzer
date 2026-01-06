@@ -23,6 +23,9 @@
 #include "Serialization/JsonWriter.h"
 #include "Misc/PackageName.h"
 #include "HAL/FileManager.h"
+#include "UObject/UnrealType.h"
+#include "UObject/ObjectPtr.h"
+#include "UObject/SoftObjectPtr.h"
 
 namespace
 {
@@ -43,7 +46,7 @@ namespace
 		Root->SetBoolField(TEXT("ok"), true);
 		Root->SetStringField(TEXT("status"), TEXT("running"));
 		Root->SetStringField(TEXT("plugin"), TEXT("UnrealProjectAnalyzer"));
-		Root->SetStringField(TEXT("version"), TEXT("0.2.0"));
+		Root->SetStringField(TEXT("version"), TEXT("0.3.1"));
 		
 		// Add engine version info
 		Root->SetStringField(TEXT("ue_version"), *FEngineVersion::Current().ToString());
@@ -68,6 +71,9 @@ namespace
 		const FString ObjectPath = FUnrealAnalyzerHttpUtils::NormalizeToObjectPath(BpPath);
 		return Cast<UBlueprint>(StaticLoadObject(UBlueprint::StaticClass(), nullptr, *ObjectPath));
 	}
+
+	// Forward declaration (used by Blueprint handlers defined earlier in this file)
+	static TArray<FString> ExtractBlueprintSoftReferences(UBlueprint* Blueprint);
 
 	static void AddClassChain(TArray<TSharedPtr<FJsonValue>>& OutHierarchy, UClass* StartClass, FString& OutFirstNativeParent)
 	{
@@ -514,6 +520,53 @@ namespace
 		return true;
 	}
 
+	static bool HandleBlueprintSoftReferences(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+	{
+		FString BpPath;
+		if (!FUnrealAnalyzerHttpUtils::GetRequiredQueryParam(Request, TEXT("bp_path"), BpPath))
+		{
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Missing required query param: bp_path")));
+			return true;
+		}
+
+		UBlueprint* Blueprint = LoadBlueprintFromPath(BpPath);
+		if (!Blueprint)
+		{
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Failed to load Blueprint"), EHttpServerResponseCodes::NotFound, BpPath));
+			return true;
+		}
+
+		TArray<FString> SoftRefs = ExtractBlueprintSoftReferences(Blueprint);
+
+		TArray<TSharedPtr<FJsonValue>> SoftRefArray;
+		for (const FString& Ref : SoftRefs)
+		{
+			TSharedRef<FJsonObject> RefObj = MakeShared<FJsonObject>();
+			RefObj->SetStringField(TEXT("path"), Ref);
+			
+			// Try to get type/name from registry
+			TArray<FAssetData> Assets;
+			GetAssetRegistry().GetAssetsByPackageName(FName(*Ref), Assets);
+			if (Assets.Num() > 0)
+			{
+				RefObj->SetStringField(TEXT("name"), Assets[0].AssetName.ToString());
+				RefObj->SetStringField(TEXT("type"), Assets[0].AssetClassPath.GetAssetName().ToString());
+			}
+			
+			SoftRefArray.Add(MakeShared<FJsonValueObject>(RefObj));
+		}
+
+		TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
+		Root->SetBoolField(TEXT("ok"), true);
+		Root->SetStringField(TEXT("blueprint"), FUnrealAnalyzerHttpUtils::NormalizeToPackagePath(BpPath));
+		Root->SetArrayField(TEXT("soft_references"), SoftRefArray);
+		Root->SetNumberField(TEXT("count"), SoftRefArray.Num());
+		Root->SetStringField(TEXT("note"), TEXT("Soft references are CDO variable defaults not tracked by AssetRegistry"));
+
+		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
+		return true;
+	}
+
 	static bool HandleBlueprintDetails(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString BpPath;
@@ -608,6 +661,14 @@ namespace
 		Root->SetNumberField(TEXT("variable_count"), Variables.Num());
 		Root->SetNumberField(TEXT("function_count"), Functions.Num());
 		Root->SetNumberField(TEXT("component_count"), Components.Num());
+
+		// Add soft reference count hint
+		TArray<FString> SoftRefs = ExtractBlueprintSoftReferences(Blueprint);
+		if (SoftRefs.Num() > 0)
+		{
+			Root->SetNumberField(TEXT("soft_reference_count"), SoftRefs.Num());
+			Root->SetStringField(TEXT("soft_reference_hint"), TEXT("Use /blueprint/soft-references endpoint to see CDO variable defaults"));
+		}
 
 		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
 		return true;
@@ -738,6 +799,115 @@ namespace
 		return true;
 	}
 
+	// ============================================================================
+	// Deep Blueprint inspection (extract soft references from CDO)
+	// ============================================================================
+
+	/**
+	 * Extract soft object references from a Blueprint's Class Default Object (CDO).
+	 * These are references stored in variable default values that AssetRegistry.GetDependencies() misses.
+	 */
+	static TArray<FString> ExtractBlueprintSoftReferences(UBlueprint* Blueprint)
+	{
+		TArray<FString> SoftRefs;
+		if (!Blueprint || !Blueprint->GeneratedClass)
+		{
+			return SoftRefs;
+		}
+
+		UObject* CDO = Blueprint->GeneratedClass->GetDefaultObject();
+		if (!CDO)
+		{
+			return SoftRefs;
+		}
+
+		// Iterate all properties of the generated class
+		for (TFieldIterator<FProperty> PropIt(Blueprint->GeneratedClass, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
+		{
+			FProperty* Property = *PropIt;
+			if (!Property)
+			{
+				continue;
+			}
+
+			// Check for class properties (includes TSubclassOf<>-backed UClass references)
+			if (FClassProperty* ClassProp = CastField<FClassProperty>(Property))
+			{
+				UClass* ClassValue = nullptr;
+				const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(CDO);
+				if (ValuePtr)
+				{
+					// UE5: FClassProperty stores a UObject pointer (TObjectPtr<UObject>) internally.
+					const TObjectPtr<UObject> RawObj = ClassProp->GetPropertyValue(ValuePtr);
+					ClassValue = Cast<UClass>(RawObj.Get());
+				}
+				if (ClassValue && ClassValue->ClassGeneratedBy)
+				{
+					const FString BpPath = ClassValue->ClassGeneratedBy->GetPathName();
+					if (!BpPath.IsEmpty())
+					{
+						SoftRefs.AddUnique(FPackageName::ObjectPathToPackageName(BpPath));
+					}
+				}
+			}
+			// Check for TSoftClassPtr<> properties
+			else if (FSoftClassProperty* SoftClassProp = CastField<FSoftClassProperty>(Property))
+			{
+				const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(CDO);
+				if (ValuePtr)
+				{
+					const FSoftObjectPtr SoftPtr = SoftClassProp->GetPropertyValue(ValuePtr);
+					if (!SoftPtr.IsNull())
+					{
+						const FSoftObjectPath SoftPath = SoftPtr.ToSoftObjectPath();
+						const FString PackageName = SoftPath.GetLongPackageName();
+						if (!PackageName.IsEmpty())
+						{
+							SoftRefs.AddUnique(PackageName);
+						}
+					}
+				}
+			}
+			// Check for TSoftObjectPtr<> properties
+			else if (FSoftObjectProperty* SoftObjProp = CastField<FSoftObjectProperty>(Property))
+			{
+				const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(CDO);
+				if (ValuePtr)
+				{
+					const FSoftObjectPtr SoftPtr = SoftObjProp->GetPropertyValue(ValuePtr);
+					if (!SoftPtr.IsNull())
+					{
+						const FSoftObjectPath SoftPath = SoftPtr.ToSoftObjectPath();
+						const FString PackageName = SoftPath.GetLongPackageName();
+						if (!PackageName.IsEmpty())
+						{
+							SoftRefs.AddUnique(PackageName);
+						}
+					}
+				}
+			}
+			// Check for UObject* properties
+			else if (FObjectProperty* ObjProp = CastField<FObjectProperty>(Property))
+			{
+				const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(CDO);
+				if (ValuePtr)
+				{
+					UObject* ObjValue = ObjProp->GetPropertyValue(ValuePtr);
+					if (ObjValue)
+					{
+						const FString ObjPath = ObjValue->GetPathName();
+						if (!ObjPath.IsEmpty() && !ObjPath.StartsWith(TEXT("/Script/")))
+						{
+							SoftRefs.AddUnique(FPackageName::ObjectPathToPackageName(ObjPath));
+						}
+					}
+				}
+			}
+		}
+
+		return SoftRefs;
+	}
+
 	static bool HandleAssetMetadata(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 	{
 		FString AssetPath;
@@ -801,7 +971,8 @@ namespace
 		int32 Depth,
 		int32 MaxDepth,
 		const FString& Direction,
-		TSet<FString>& Visited
+		TSet<FString>& Visited,
+		bool bIncludeSoftRefs = true
 	)
 	{
 		TSharedRef<FJsonObject> NodeObj = MakeShared<FJsonObject>();
@@ -811,10 +982,12 @@ namespace
 		// Try to get type/name
 		TArray<FAssetData> Assets;
 		GetAssetRegistry().GetAssetsByPackageName(FName(*PackagePath), Assets);
+		FString AssetType;
 		if (Assets.Num() > 0)
 		{
 			NodeObj->SetStringField(TEXT("name"), Assets[0].AssetName.ToString());
-			NodeObj->SetStringField(TEXT("type"), Assets[0].AssetClassPath.GetAssetName().ToString());
+			AssetType = Assets[0].AssetClassPath.GetAssetName().ToString();
+			NodeObj->SetStringField(TEXT("type"), AssetType);
 		}
 
 		if (Depth >= MaxDepth)
@@ -824,9 +997,22 @@ namespace
 		}
 
 		TArray<FName> NextPackages;
+		TArray<FString> SoftRefPaths;
+		
 		if (Direction.Equals(TEXT("references"), ESearchCase::IgnoreCase) || Direction.Equals(TEXT("both"), ESearchCase::IgnoreCase))
 		{
+			// Get hard references from AssetRegistry
 			GetAssetRegistry().GetDependencies(FName(*PackagePath), NextPackages, UE::AssetRegistry::EDependencyCategory::All);
+			
+			// Also get soft references from Blueprint CDO if this is a Blueprint
+			if (bIncludeSoftRefs && AssetType == TEXT("Blueprint"))
+			{
+				UBlueprint* BP = LoadBlueprintFromPath(PackagePath);
+				if (BP)
+				{
+					SoftRefPaths = ExtractBlueprintSoftReferences(BP);
+				}
+			}
 		}
 		if (Direction.Equals(TEXT("referencers"), ESearchCase::IgnoreCase) || Direction.Equals(TEXT("both"), ESearchCase::IgnoreCase))
 		{
@@ -836,6 +1022,9 @@ namespace
 		}
 
 		TArray<TSharedPtr<FJsonValue>> Children;
+		TArray<TSharedPtr<FJsonValue>> SoftRefChildren;
+		
+		// Process hard references
 		for (const FName& Next : NextPackages)
 		{
 			const FString NextPath = Next.ToString();
@@ -844,10 +1033,38 @@ namespace
 				continue;
 			}
 			Visited.Add(NextPath);
-			Children.Add(MakeShared<FJsonValueObject>(BuildRefChainNodeJson(NextPath, Depth + 1, MaxDepth, Direction, Visited)));
+			Children.Add(MakeShared<FJsonValueObject>(BuildRefChainNodeJson(NextPath, Depth + 1, MaxDepth, Direction, Visited, bIncludeSoftRefs)));
+		}
+		
+		// Process soft references (only for outgoing direction)
+		for (const FString& SoftPath : SoftRefPaths)
+		{
+			if (Visited.Contains(SoftPath))
+			{
+				continue;
+			}
+			Visited.Add(SoftPath);
+			
+			TSharedPtr<FJsonObject> SoftRefNode = BuildRefChainNodeJson(SoftPath, Depth + 1, MaxDepth, Direction, Visited, bIncludeSoftRefs);
+			if (SoftRefNode.IsValid())
+			{
+				// Mark as soft reference
+				SoftRefNode->SetBoolField(TEXT("is_soft_reference"), true);
+				SoftRefChildren.Add(MakeShared<FJsonValueObject>(SoftRefNode));
+			}
 		}
 
+		// Merge children (hard refs first, then soft refs)
+		Children.Append(SoftRefChildren);
+		
 		NodeObj->SetArrayField(TEXT("children"), Children);
+		
+		// Add soft reference count for visibility
+		if (SoftRefChildren.Num() > 0)
+		{
+			NodeObj->SetNumberField(TEXT("soft_reference_count"), SoftRefChildren.Num());
+		}
+		
 		return NodeObj;
 	}
 
@@ -1036,8 +1253,8 @@ namespace
 				TSet<FString> Visited;
 				Visited.Add(StartPackage);
 
-				// Build chain (GameThread-safe)
-				TSharedPtr<FJsonObject> Chain = BuildRefChainNodeJson(StartPackage, 0, FMath::Max(0, MaxDepth), Direction, Visited);
+				// Build chain (GameThread-safe), include soft references from Blueprint CDO
+				TSharedPtr<FJsonObject> Chain = BuildRefChainNodeJson(StartPackage, 0, FMath::Max(0, MaxDepth), Direction, Visited, /*bIncludeSoftRefs=*/true);
 
 				TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
 				Root->SetBoolField(TEXT("ok"), true);
@@ -1183,6 +1400,11 @@ void UnrealAnalyzerHttpRoutes::Register(TSharedPtr<IHttpRouter> Router)
 		FHttpPath(TEXT("/blueprint/details")),
 		EHttpServerRequestVerbs::VERB_GET,
 		FHttpRequestHandler::CreateStatic(&HandleBlueprintDetails)
+	);
+	Router->BindRoute(
+		FHttpPath(TEXT("/blueprint/soft-references")),
+		EHttpServerRequestVerbs::VERB_GET,
+		FHttpRequestHandler::CreateStatic(&HandleBlueprintSoftReferences)
 	);
 
 	// Asset tools (query-param based).

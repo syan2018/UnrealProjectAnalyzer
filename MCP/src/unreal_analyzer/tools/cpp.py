@@ -145,93 +145,30 @@ async def find_cpp_references(
 
 
 async def detect_ue_patterns(
-    file_path: Annotated[str, "C++ file path (.h/.cpp) to scan for UPROPERTY/UFUNCTION/UCLASS"],
+    file_path: Annotated[str, "C++ file path (.h/.cpp). Example: 'Source/MyGame/MyActor.h'"],
+    format: Annotated[
+        Literal["detailed", "summary"],
+        "Output format: 'detailed' (default) | 'summary' (Blueprint-exposed only).",
+    ] = "detailed",
 ) -> dict:
     """
-    Detect Unreal Engine patterns in a C++ file.
+    Detect UE macros (UPROPERTY/UFUNCTION/UCLASS) in a C++ file.
 
-    Analyzes a file for UE-specific macros that determine Blueprint exposure.
-    Critical for understanding the C++ → Blueprint boundary.
-
-    Detects:
-    - UPROPERTY: Properties exposed to Blueprints
-    - UFUNCTION: Functions callable from Blueprints
-    - UCLASS/USTRUCT/UENUM: Type declarations
-    - Replication specifiers
-
-    Args:
-        file_path: Path to the C++ header or source file
-
-    Returns:
-        Dictionary containing:
-        - file: Path to the analyzed file
-        - patterns: List of detected patterns, each with:
-            - pattern_type: UPROPERTY, UFUNCTION, UCLASS, etc.
-            - name: Name of the property/function/class
-            - specifiers: List of specifiers used
-            - line: Line number
-            - context: Surrounding code
-            - is_blueprint_exposed: Whether exposed to Blueprints
-            - is_replicated: Whether marked for replication
-
-    Example:
-        >>> await detect_ue_patterns("Source/MyGame/MyActor.h")
-        {
-            "patterns": [
-                {
-                    "pattern_type": "UPROPERTY",
-                    "name": "Health",
-                    "specifiers": ["BlueprintReadWrite", "Replicated"],
-                    "is_blueprint_exposed": true,
-                    "is_replicated": true
-                },
-                {
-                    "pattern_type": "UFUNCTION",
-                    "name": "TakeDamage",
-                    "specifiers": ["BlueprintCallable"],
-                    "is_blueprint_exposed": true
-                }
-            ]
-        }
+    Returns all UE patterns with specifiers, or a Blueprint-exposed summary.
     """
     analyzer = get_analyzer()
-    return await analyzer.detect_patterns(file_path)
+
+    if format == "summary":
+        # Return Blueprint-exposed API summary
+        return await analyzer.get_blueprint_exposure(file_path)
+    else:
+        # Return detailed pattern list
+        return await analyzer.detect_patterns(file_path)
 
 
+# Alias for backward compatibility
 async def get_cpp_blueprint_exposure(
-    file_path: Annotated[str, "C++ header file path (.h) to summarize Blueprint-exposed API"],
+    file_path: Annotated[str, "C++ header file path (.h)"],
 ) -> dict:
-    """
-    Get all Blueprint-exposed API from a C++ file.
-
-    Extracts a summary of everything in a C++ header that is accessible
-    from Blueprints. This is the key tool for understanding the
-    C++ → Blueprint interface boundary.
-
-    Args:
-        file_path: Path to the C++ header file
-
-    Returns:
-        Dictionary containing:
-        - file: Path to the analyzed file
-        - blueprint_callable_functions: Functions with BlueprintCallable
-        - blueprint_pure_functions: Functions with BlueprintPure
-        - blueprint_events: Functions with BlueprintImplementableEvent/NativeEvent
-        - blueprint_readable_properties: Properties readable in Blueprints
-        - blueprint_writable_properties: Properties writable in Blueprints
-        - blueprintable_classes: Classes that can be Blueprint parents
-
-    Example:
-        >>> await get_cpp_blueprint_exposure("Source/MyGame/MyActor.h")
-        {
-            "file": "Source/MyGame/MyActor.h",
-            "blueprint_callable_functions": ["TakeDamage", "Heal", "GetHealth"],
-            "blueprint_pure_functions": ["GetHealthPercent"],
-            "blueprint_events": ["OnDeath"],
-            "blueprint_readable_properties": ["Health", "MaxHealth"],
-            "blueprint_writable_properties": ["Health"],
-            "blueprintable_classes": ["AMyActor"]
-        }
-    """
-    analyzer = get_analyzer()
-    return await analyzer.get_blueprint_exposure(file_path)
+    """Get Blueprint-exposed API summary from a C++ header. (Alias for detect_ue_patterns with format='summary')"""
+    return await detect_ue_patterns(file_path, format="summary")
