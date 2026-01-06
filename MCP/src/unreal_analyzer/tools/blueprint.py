@@ -5,6 +5,8 @@ These tools communicate with the Unreal Plugin HTTP API to query
 Blueprint metadata, hierarchy, dependencies, and graph information.
 """
 
+from typing import Annotated
+
 from ..ue_client import get_client
 from ..ue_client.http_client import UEPluginError
 
@@ -20,16 +22,22 @@ def _ue_error(tool: str, e: Exception) -> dict:
 
 
 async def search_blueprints(name_pattern: str, class_filter: str = "") -> dict:
-    """Search for blueprints by name pattern.
+    """
+    Search Blueprints by name pattern (UE plugin required).
 
     Args:
-        name_pattern: Blueprint name or partial name (supports wildcards *)
-        class_filter: Optional parent class filter (e.g., "Actor", "GameplayAbility")
+        name_pattern: Blueprint name pattern. Supports UE wildcards like `*` and `?`.
+        class_filter: Optional parent class filter (substring match).
 
     Returns:
-        Dictionary containing:
-        - matches: List of matching blueprints with name and path
-        - count: Number of matches
+        A dict:
+        - ok: bool
+        - matches: list[dict] with {name, path, type}
+        - count: int
+
+    Notes:
+        - This tool is kept for specialized needs; for most workflows prefer `search()`.
+        - Paths are package paths like `/Game/...`.
     """
     client = get_client()
     try:
@@ -45,16 +53,19 @@ async def search_blueprints(name_pattern: str, class_filter: str = "") -> dict:
 
 
 async def get_blueprint_hierarchy(bp_path: str) -> dict:
-    """Get the class inheritance hierarchy of a blueprint.
+    """
+    Get the Blueprint inheritance chain (UE plugin required).
 
     Args:
-        bp_path: Blueprint asset path (e.g., "/Game/Blueprints/BP_Player")
+        bp_path: Blueprint asset path (e.g. `/Game/Blueprints/BP_Player`).
 
     Returns:
-        Dictionary containing:
-        - hierarchy: List of classes from blueprint to UObject
-        - native_parent: First native C++ parent class
-        - blueprint_parents: List of blueprint parent classes
+        A dict:
+        - ok: bool
+        - blueprint: str
+        - hierarchy: list[dict] (name/path/is_native)
+        - native_parent: str
+        - blueprint_parents: list[dict]
     """
     client = get_client()
     # NOTE: bp_path contains "/" (e.g. "/Game/..."), so passing it in the URL path
@@ -66,15 +77,18 @@ async def get_blueprint_hierarchy(bp_path: str) -> dict:
 
 
 async def get_blueprint_dependencies(bp_path: str) -> dict:
-    """Get all dependencies of a blueprint.
+    """
+    Get outgoing dependencies of a Blueprint (UE plugin required).
 
     Args:
-        bp_path: Blueprint asset path
+        bp_path: Blueprint asset path.
 
     Returns:
-        Dictionary containing:
-        - dependencies: List of dependencies with class, module, and type
-        - summary: Count by dependency type
+        A dict:
+        - ok: bool
+        - blueprint: str
+        - dependencies: list[str]
+        - count: int
     """
     client = get_client()
     try:
@@ -84,15 +98,18 @@ async def get_blueprint_dependencies(bp_path: str) -> dict:
 
 
 async def get_blueprint_referencers(bp_path: str) -> dict:
-    """Get all assets that reference this blueprint.
+    """
+    Get incoming referencers of a Blueprint (UE plugin required).
 
     Args:
-        bp_path: Blueprint asset path
+        bp_path: Blueprint asset path.
 
     Returns:
-        Dictionary containing:
-        - referencers: List of referencing assets
-        - count: Number of referencers
+        A dict:
+        - ok: bool
+        - blueprint: str
+        - referencers: list[str]
+        - count: int
     """
     client = get_client()
     try:
@@ -101,19 +118,16 @@ async def get_blueprint_referencers(bp_path: str) -> dict:
         return _ue_error("get_blueprint_referencers", e)
 
 
-async def get_blueprint_graph(bp_path: str, graph_name: str = "EventGraph") -> dict:
-    """Get the node graph of a blueprint.
+async def get_blueprint_graph(
+    bp_path: Annotated[str, "Blueprint path (e.g. '/Game/...')"],
+    graph_name: Annotated[str, "Graph name (default: EventGraph)"] = "EventGraph",
+) -> dict:
+    """
+    获取蓝图图表（节点 + 连接）（需要 UE 插件）。
 
-    Uses async job + chunked retrieval for large graphs to avoid socket_send_failure.
-
-    Args:
-        bp_path: Blueprint asset path
-        graph_name: Name of the graph (default: "EventGraph")
-
-    Returns:
-        Dictionary containing:
-        - nodes: List of nodes with id, type, and connections
-        - connections: List of pin connections
+    说明：
+        - `bp_path` 必须是 `/Game/...` 这种 package path
+        - 大图会自动走异步任务 + 分块拉取，避免 UE http socket_send_failure
     """
     client = get_client()
     try:
@@ -128,18 +142,24 @@ async def get_blueprint_graph(bp_path: str, graph_name: str = "EventGraph") -> d
 
 
 async def get_blueprint_details(bp_path: str) -> dict:
-    """Get comprehensive details of a blueprint.
+    """
+    Get Blueprint details (variables, functions, components) (UE plugin required).
 
     Args:
-        bp_path: Blueprint asset path
+        bp_path: Blueprint asset path.
 
     Returns:
-        Dictionary containing:
-        - variables: List of variables
-        - functions: List of functions
-        - components: List of components
-        - graphs: List of graph names
-        - parent_class: Parent class info
+        A dict containing:
+        - ok: bool
+        - blueprint: str
+        - variables: list[dict]
+        - functions: list[str]
+        - components: list[dict]
+        - graphs: list[str]
+        - parent_class: dict
+        - variable_count: int
+        - function_count: int
+        - component_count: int
     """
     client = get_client()
     try:

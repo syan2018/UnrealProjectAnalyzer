@@ -1017,6 +1017,107 @@ class CppAnalyzer:
 
         return {"patterns": patterns, "file": file_path}
 
+    async def analyze_file(
+        self,
+        file_path: str,
+        *,
+        max_preview_chars: int = 8000,
+    ) -> dict:
+        """
+        Analyze a single C++ file path (header/source).
+
+        This is a lightweight file-oriented API used by unified.get_details when the user provides
+        a file path (e.g., D:\\...\\LyraHealthComponent.h).
+
+        Returns:
+            - file: absolute file path
+            - exists: bool
+            - size_bytes: int | None
+            - preview: str (truncated)
+            - includes: list[str]
+            - classes: list[dict] (name, line)
+            - functions: list[dict] (name, line)
+            - ue_patterns: list[dict] (UPROPERTY/UFUNCTION/UCLASS...)
+        """
+        path = Path(file_path)
+        if not path.exists():
+            return {"file": str(path), "exists": False, "error": "file_not_found"}
+
+        try:
+            size_bytes = path.stat().st_size
+        except Exception:
+            size_bytes = None
+
+        content = path.read_text(encoding="utf-8", errors="ignore")
+
+        # Parse AST (cached)
+        tree = await self._parse_file(str(path))
+
+        includes: list[str] = []
+        classes: list[dict] = []
+        functions: list[dict] = []
+
+        # Includes
+        include_q = self._query_cache.get("INCLUDE")
+        if include_q is not None:
+            cursor = QueryCursor(include_q)
+            for _, captured in cursor.matches(tree.root_node):
+                nodes = captured.get("include_path") or []
+                if not nodes:
+                    continue
+                includes.append(nodes[0].text.decode(errors="ignore").strip())
+
+        # Classes (name + line)
+        class_q = self._query_cache.get("CLASS")
+        if class_q is not None:
+            cursor = QueryCursor(class_q)
+            for _, captured in cursor.matches(tree.root_node):
+                name_nodes = captured.get("class_name") or []
+                class_nodes = captured.get("class") or []
+                body_nodes = captured.get("class_body") or []
+                if not name_nodes or not class_nodes or not body_nodes:
+                    continue
+                classes.append(
+                    {
+                        "name": name_nodes[0].text.decode(errors="ignore"),
+                        "line": class_nodes[0].start_point[0] + 1,
+                    }
+                )
+
+        # Functions (definition only)
+        func_q = self._query_cache.get("FUNCTION")
+        if func_q is not None:
+            cursor = QueryCursor(func_q)
+            for _, captured in cursor.matches(tree.root_node):
+                name_nodes = captured.get("func_name") or []
+                func_nodes = captured.get("function") or []
+                if not name_nodes or not func_nodes:
+                    continue
+                functions.append(
+                    {
+                        "name": name_nodes[0].text.decode(errors="ignore"),
+                        "line": func_nodes[0].start_point[0] + 1,
+                    }
+                )
+
+        # UE patterns (regex-based)
+        ue_patterns = detect_ue_pattern(content, str(path))
+
+        preview = content[: max(0, int(max_preview_chars))]
+        if len(content) > max_preview_chars:
+            preview += "\n... (truncated)"
+
+        return {
+            "file": str(path.resolve()),
+            "exists": True,
+            "size_bytes": size_bytes,
+            "preview": preview,
+            "includes": includes,
+            "classes": classes,
+            "functions": functions,
+            "ue_patterns": ue_patterns,
+        }
+
     async def get_blueprint_exposure(self, file_path: str) -> dict:
         """
         Get all Blueprint-exposed API from a file.

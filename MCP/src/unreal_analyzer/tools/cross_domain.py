@@ -1,9 +1,12 @@
 """
 Cross-domain query tools.
 
-These tools combine Blueprint, Asset, and C++ analysis to provide
-comprehensive cross-domain queries.
+Only a minimal subset is exposed by the MCP server:
+- trace_reference_chain
+- find_cpp_class_usage
 """
+
+from typing import Annotated, Literal
 
 from ..ue_client import get_client
 from ..ue_client.http_client import UEPluginError
@@ -20,22 +23,29 @@ def _ue_error(tool: str, e: Exception) -> dict:
 
 
 async def trace_reference_chain(
-    start_asset: str, max_depth: int = 3, direction: str = "both"
+    start_asset: Annotated[str, "Starting asset path (e.g. '/Game/...')"],
+    max_depth: Annotated[int, "Maximum depth to trace (default: 3)"] = 3,
+    direction: Annotated[Literal["references", "referencers", "both"], "Trace direction"] = "both",
 ) -> dict:
-    """Trace the reference chain from an asset.
-
-    Uses async job + chunked retrieval to avoid socket_send_failure on large responses.
+    """
+    Trace a cross-domain reference chain (UE plugin required).
 
     Args:
-        start_asset: Starting asset path
-        max_depth: Maximum depth to trace (default: 3)
-        direction: "references", "referencers", or "both"
+        start_asset: Starting asset path (e.g. `/Game/...`).
+        max_depth: Max recursion depth.
+        direction: `references` | `referencers` | `both`.
 
     Returns:
-        Dictionary containing:
-        - root: Starting asset info
-        - chain: Nested reference tree
-        - summary: Statistics about the chain
+        A dict:
+        - ok: bool
+        - start: str
+        - direction: str
+        - max_depth: int
+        - chain: dict (nested children)
+        - unique_nodes: int
+
+    Notes:
+        Uses UE-side async job + chunked retrieval to avoid socket_send_failure for large payloads.
     """
     client = get_client()
     try:
@@ -53,26 +63,66 @@ async def trace_reference_chain(
         return _ue_error("trace_reference_chain", e)
 
 
-async def find_cpp_class_usage(cpp_class: str) -> dict:
-    """Find all Blueprint/Asset usage of a C++ class.
+async def find_cpp_class_usage(
+    cpp_class: Annotated[str, "C++ class name (e.g. 'ULyraHealthSet')"],
+    *,
+    scope: Annotated[Literal["project", "engine", "all"], "C++ search scope"] = "project",
+    include_cpp: Annotated[bool, "Include C++ references (default: True)"] = True,
+    max_cpp_results: Annotated[int, "Max number of C++ matches to return"] = 200,
+) -> dict:
+    """
+    Find usage of a C++ class across Blueprint/Asset and C++ code.
 
     Args:
-        cpp_class: C++ class name (e.g., "UCharacterMovementComponent")
+        cpp_class: C++ class name (e.g. `ULyraHealthSet`).
+        scope: C++ search scope: `project` | `engine` | `all`.
+        include_cpp: Whether to include C++ references (default: True).
+        max_cpp_results: Max C++ matches to return.
 
     Returns:
-        Dictionary containing:
-        - as_parent_class: Blueprints inheriting from this class
-        - as_component: Blueprints using this as a component
-        - as_variable_type: Blueprints with variables of this type
-        - as_function_call: Blueprints calling functions from this class
+        UE plugin part:
+        - as_parent_class: list[dict]
+        - as_component: list
+        - as_variable_type: list
+        - as_function_call: list
+
+        C++ part (when include_cpp=True):
+        - cpp_references: list[dict]
+        - cpp_reference_count: int
+        - cpp_reference_truncated: bool
+        - cpp_scope: str
     """
     client = get_client()
     try:
-        return await client.get(
+        bp_result = await client.get(
             "/analysis/cpp-class-usage",
             {
                 "class": cpp_class,
             },
         )
+        if not include_cpp:
+            return bp_result
+
+        # Merge in C++ references (scope-aware).
+        try:
+            from ..cpp_analyzer import get_analyzer
+
+            analyzer = get_analyzer()
+            cpp_result = await analyzer.find_references(
+                cpp_class,
+                scope=scope,
+            )
+            # Truncate to avoid huge payloads
+            matches = cpp_result.get("matches", [])[: max(0, int(max_cpp_results))]
+            bp_result["cpp_references"] = matches
+            bp_result["cpp_reference_count"] = len(matches)
+            bp_result["cpp_reference_truncated"] = cpp_result.get("count", 0) > len(matches)
+            bp_result["cpp_scope"] = scope
+        except Exception as e:
+            bp_result["cpp_references"] = []
+            bp_result["cpp_reference_count"] = 0
+            bp_result["cpp_error"] = str(e)
+
+        return bp_result
     except UEPluginError as e:
         return _ue_error("find_cpp_class_usage", e)

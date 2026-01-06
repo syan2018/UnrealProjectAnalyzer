@@ -56,6 +56,36 @@ def _parse_scope(value: str | None) -> SearchScope:
         return SearchScope.PROJECT
 
 
+def _auto_detect_project_source_paths() -> list[str]:
+    """
+    Best-effort auto detection of <Project>/Source when running from a plugin directory.
+
+    This solves a common UX pitfall when users manually run the MCP server from:
+      <Project>/Plugins/UnrealProjectAnalyzer
+    but forget to pass --cpp-source-path.
+    """
+    candidates: list[str] = []
+
+    cwd = Path.cwd()
+    # Walk up a few levels to find a *.uproject
+    for parent in [cwd, *cwd.parents][:8]:
+        try:
+            uprojects = list(parent.glob("*.uproject"))
+        except Exception:
+            uprojects = []
+        if not uprojects:
+            continue
+
+        # Prefer the first uproject found; use its directory.
+        project_dir = uprojects[0].parent
+        src = project_dir / "Source"
+        if src.exists() and src.is_dir():
+            candidates.append(str(src.resolve()))
+        break
+
+    return candidates
+
+
 @dataclass
 class SourceConfig:
     """Configuration for a source path with metadata."""
@@ -102,6 +132,12 @@ class Config:
         cpp_source = os.getenv("CPP_SOURCE_PATH")
         if cpp_source:
             self.add_source_path(cpp_source, is_engine=False)
+        else:
+            # Auto-detect project Source if not provided (opt-out via env var).
+            auto_detect = _parse_bool(os.getenv("ANALYZER_AUTO_DETECT_PROJECT_SOURCE"), True)
+            if auto_detect:
+                for p in _auto_detect_project_source_paths():
+                    self.add_source_path(p, is_engine=False, label="auto_project")
 
         # Add UNREAL_ENGINE_PATH as engine source
         unreal_path = os.getenv("UNREAL_ENGINE_PATH")

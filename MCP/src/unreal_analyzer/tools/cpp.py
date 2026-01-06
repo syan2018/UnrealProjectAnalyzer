@@ -21,7 +21,7 @@ Configuration is done via environment variables:
 - UNREAL_ENGINE_PATH: Optional path to Unreal installation for engine source analysis
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from ..cpp_analyzer import get_analyzer
 
@@ -38,40 +38,23 @@ async def analyze_cpp_class(
     class_name: str, source_path: str = "", scope: ScopeType = "project"
 ) -> dict:
     """
-    Analyze a C++ class structure.
-
-    Extracts detailed information about a class including its methods,
-    properties, inheritance, and documentation. Essential for understanding
-    how C++ classes expose functionality to Blueprints.
+    Analyze a C++ class structure (tree-sitter).
 
     Args:
-        class_name: Name of the C++ class (e.g., "ACharacter", "UActorComponent")
-        source_path: Optional specific source directory to search
-        scope: Search scope - "project" (default, fast), "engine", or "all"
+        class_name: C++ class name (e.g. `ACharacter`, `ULyraHealthComponent`).
+        source_path: Optional explicit directory to search first.
+        scope: Search scope: `project` (default) | `engine` | `all`.
 
     Returns:
-        Dictionary containing:
-        - name: Class name
-        - file: Source file path
-        - line: Line number of definition
-        - superclasses: List of parent classes
-        - interfaces: List of implemented interfaces (fixed: now properly detected)
-        - is_uclass: Whether marked with UCLASS macro
-        - uclass_specifiers: UCLASS specifiers if any
-        - methods: List of methods with signatures, parameters, visibility
-        - properties: List of properties with types, visibility, UPROPERTY info
-        - comments: Documentation comments
-
-    Example:
-        >>> await analyze_cpp_class("ACharacter", scope="engine")
-        {
-            "name": "ACharacter",
-            "file": ".../Character.h",
-            "superclasses": ["APawn"],
-            "interfaces": ["INavAgentInterface"],
-            "methods": [...],
-            ...
-        }
+        A dict with:
+        - name: str
+        - file: str
+        - line: int
+        - superclasses: list[str]
+        - interfaces: list[str]
+        - methods: list[dict]
+        - properties: list[dict]
+        - comments: list[str]
     """
     analyzer = get_analyzer()
     return await analyzer.analyze_class(class_name, source_path, scope=scope)
@@ -81,36 +64,18 @@ async def get_cpp_class_hierarchy(
     class_name: str, include_interfaces: bool = True, scope: ScopeType = "project"
 ) -> dict:
     """
-    Get the inheritance hierarchy of a C++ class.
-
-    Recursively traces the class inheritance chain. Critical for understanding
-    Blueprint class hierarchies that extend C++ base classes.
+    Get the inheritance hierarchy of a C++ class (tree-sitter).
 
     Args:
-        class_name: Name of the C++ class
-        include_interfaces: Whether to include implemented interfaces
-        scope: Search scope - "project" (default, fast), "engine", or "all"
+        class_name: C++ class name.
+        include_interfaces: Include implemented interfaces in the result.
+        scope: Search scope: `project` (default) | `engine` | `all`.
 
     Returns:
-        Dictionary containing:
-        - class: Root class name
-        - superclasses: Recursive hierarchy of parent classes
-        - interfaces: Implemented interfaces (if include_interfaces=True)
-
-    Example:
-        >>> await get_cpp_class_hierarchy("ACharacter", scope="engine")
-        {
-            "class": "ACharacter",
-            "superclasses": [
-                {
-                    "class": "APawn",
-                    "superclasses": [
-                        {"class": "AActor", "superclasses": [...]}
-                    ]
-                }
-            ],
-            "interfaces": ["INavAgentInterface"]
-        }
+        A dict:
+        - class: str
+        - superclasses: list[dict] (recursive)
+        - interfaces: list[str]
     """
     analyzer = get_analyzer()
     return await analyzer.find_class_hierarchy(class_name, include_interfaces, scope=scope)
@@ -129,40 +94,21 @@ async def search_cpp_code(
     max_results: int = 500,
 ) -> dict:
     """
-    Search through C++ source code.
-
-    Performs regex-based search to find code patterns, function calls,
-    or any text in source files. Useful for tracing where specific
-    classes or functions are used.
+    Search C++ source code (regex) (tree-sitter).
 
     Args:
-        query: Search query (supports regex patterns)
-        file_pattern: File pattern to search (default: "*.{h,cpp}")
-        include_comments: Whether to include matches in comments
-        scope: Search scope - "project" (default, fast), "engine", or "all"
-        max_results: Maximum results to return (default: 500, prevents slowdown)
+        query: Regex query.
+        file_pattern: File glob pattern (default: `*.{h,cpp}`).
+        include_comments: Include matches in comment lines.
+        scope: Search scope: `project` (default) | `engine` | `all`.
+        max_results: Limit returned matches.
 
     Returns:
-        Dictionary containing:
-        - matches: List of matches with file, line, column, and context
-        - count: Total number of matches
-        - scope: The scope that was searched
-        - truncated: Whether results were truncated due to max_results
-
-    Example:
-        >>> await search_cpp_code("TryActivateAbility", scope="project")
-        {
-            "matches": [
-                {
-                    "file": ".../AbilitySystemComponent.cpp",
-                    "line": 234,
-                    "context": "void UAbilitySystemComponent::TryActivateAbility(...)"
-                }
-            ],
-            "count": 15,
-            "scope": "project",
-            "truncated": false
-        }
+        A dict:
+        - matches: list[dict]
+        - count: int
+        - scope: str
+        - truncated: bool
     """
     analyzer = get_analyzer()
     return await analyzer.search_code(
@@ -176,32 +122,18 @@ async def find_cpp_references(
     scope: ScopeType = "project",
 ) -> dict:
     """
-    Find all references to a C++ identifier.
-
-    Searches for all occurrences of a class, function, or variable name.
-    Essential for tracing how C++ code is used across the codebase.
+    Find references to a C++ identifier (best-effort) (tree-sitter/regex).
 
     Args:
-        identifier: Name of the class, function, or variable
-        ref_type: Optional type filter to narrow search results
-        scope: Search scope - "project" (default, fast), "engine", or "all"
+        identifier: Identifier name.
+        ref_type: Optional filter (currently best-effort; may be ignored).
+        scope: Search scope: `project` (default) | `engine` | `all`.
 
     Returns:
-        Dictionary containing:
-        - matches: List of references with file, line, and context
-        - count: Number of references found
-        - scope: The scope that was searched
-
-    Example:
-        >>> await find_cpp_references("UAbilitySystemComponent", "class", scope="project")
-        {
-            "matches": [
-                {"file": ".../Character.h", "line": 55, "context": "..."},
-                {"file": ".../Ability.cpp", "line": 12, "context": "..."}
-            ],
-            "count": 47,
-            "scope": "project"
-        }
+        A dict:
+        - matches: list[dict]
+        - count: int
+        - scope: str
     """
     analyzer = get_analyzer()
     return await analyzer.find_references(identifier, ref_type, scope=scope)
@@ -212,7 +144,9 @@ async def find_cpp_references(
 # ============================================================================
 
 
-async def detect_ue_patterns(file_path: str) -> dict:
+async def detect_ue_patterns(
+    file_path: Annotated[str, "C++ file path (.h/.cpp) to scan for UPROPERTY/UFUNCTION/UCLASS"],
+) -> dict:
     """
     Detect Unreal Engine patterns in a C++ file.
 
@@ -264,7 +198,9 @@ async def detect_ue_patterns(file_path: str) -> dict:
     return await analyzer.detect_patterns(file_path)
 
 
-async def get_cpp_blueprint_exposure(file_path: str) -> dict:
+async def get_cpp_blueprint_exposure(
+    file_path: Annotated[str, "C++ header file path (.h) to summarize Blueprint-exposed API"],
+) -> dict:
     """
     Get all Blueprint-exposed API from a C++ file.
 

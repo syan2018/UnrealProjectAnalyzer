@@ -20,16 +20,18 @@ def _ue_error(tool: str, e: Exception) -> dict:
 
 
 async def search_assets(name_pattern: str, asset_type: str = "") -> dict:
-    """Search for assets by name and type.
+    """
+    Search assets by name pattern and optional type filter (UE plugin required).
 
     Args:
-        name_pattern: Asset name or partial name (supports wildcards *)
-        asset_type: Optional asset type filter (e.g., "Blueprint", "SkeletalMesh")
+        name_pattern: Asset name pattern. Supports UE wildcards like `*` and `?`.
+        asset_type: Optional asset class filter (substring match).
 
     Returns:
-        Dictionary containing:
-        - matches: List of matching assets with name, path, and type
-        - count: Number of matches
+        A dict:
+        - ok: bool
+        - matches: list[dict] with {name, path, type}
+        - count: int
     """
     client = get_client()
     try:
@@ -45,15 +47,18 @@ async def search_assets(name_pattern: str, asset_type: str = "") -> dict:
 
 
 async def get_asset_references(asset_path: str) -> dict:
-    """Get all assets referenced by this asset.
+    """
+    Get outgoing references of an asset (UE plugin required).
 
     Args:
-        asset_path: Asset path (e.g., "/Game/Characters/SK_Mannequin")
+        asset_path: Asset package path (e.g. `/Game/...`).
 
     Returns:
-        Dictionary containing:
-        - references: List of referenced assets
-        - count: Number of references
+        A dict:
+        - ok: bool
+        - asset: str
+        - references: list[str]
+        - count: int
     """
     client = get_client()
     # NOTE: asset_path contains "/" (e.g. "/Game/..."), so pass via query params.
@@ -64,16 +69,18 @@ async def get_asset_references(asset_path: str) -> dict:
 
 
 async def get_asset_referencers(asset_path: str) -> dict:
-    """Get all assets that reference this asset.
+    """
+    Get incoming referencers of an asset (UE plugin required).
 
     Args:
-        asset_path: Asset path
+        asset_path: Asset package path (e.g. `/Game/...`).
 
     Returns:
-        Dictionary containing:
-        - referencers: List of referencing assets
-        - count: Number of referencers
-        - by_type: Breakdown by asset type
+        A dict:
+        - ok: bool
+        - asset: str
+        - referencers: list[str]
+        - count: int
     """
     client = get_client()
     try:
@@ -83,18 +90,20 @@ async def get_asset_referencers(asset_path: str) -> dict:
 
 
 async def get_asset_metadata(asset_path: str) -> dict:
-    """Get metadata of an asset.
+    """
+    Get basic metadata of an asset (UE plugin required).
 
     Args:
-        asset_path: Asset path
+        asset_path: Asset package path (e.g. `/Game/...`).
 
     Returns:
-        Dictionary containing:
-        - name: Asset name
-        - path: Full asset path
-        - type: Asset class type
-        - size: File size (if available)
-        - last_modified: Last modification time
+        A dict:
+        - ok: bool
+        - name: str
+        - path: str
+        - type: str
+        - size: number (optional)
+        - object_path: str
     """
     client = get_client()
     try:

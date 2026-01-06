@@ -869,10 +869,25 @@ namespace
 		}
 
 		TSharedPtr<FAsyncJsonJob> Job;
+		EAsyncJsonJobStatus StatusSnapshot = EAsyncJsonJobStatus::Pending;
+		int32 TotalCharsSnapshot = 0;
+		FString ErrorSnapshot;
 		{
 			FScopeLock Lock(&GAsyncJobsMutex);
 			CleanupOldJobs_Locked();
 			Job = GAsyncJobs.FindRef(JobId);
+			if (Job.IsValid())
+			{
+				StatusSnapshot = Job->Status;
+				if (StatusSnapshot == EAsyncJsonJobStatus::Done)
+				{
+					TotalCharsSnapshot = Job->ResultJson.Len();
+				}
+				if (StatusSnapshot == EAsyncJsonJobStatus::Error)
+				{
+					ErrorSnapshot = Job->Error;
+				}
+			}
 		}
 
 		if (!Job.IsValid())
@@ -884,14 +899,14 @@ namespace
 		TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
 		Root->SetBoolField(TEXT("ok"), true);
 		Root->SetStringField(TEXT("id"), JobIdStr);
-		Root->SetStringField(TEXT("status"), JobStatusToString(Job->Status));
-		if (Job->Status == EAsyncJsonJobStatus::Done)
+		Root->SetStringField(TEXT("status"), JobStatusToString(StatusSnapshot));
+		if (StatusSnapshot == EAsyncJsonJobStatus::Done)
 		{
-			Root->SetNumberField(TEXT("total_chars"), Job->ResultJson.Len());
+			Root->SetNumberField(TEXT("total_chars"), TotalCharsSnapshot);
 		}
-		if (Job->Status == EAsyncJsonJobStatus::Error)
+		if (StatusSnapshot == EAsyncJsonJobStatus::Error)
 		{
-			Root->SetStringField(TEXT("error"), Job->Error);
+			Root->SetStringField(TEXT("error"), ErrorSnapshot);
 		}
 
 		OnComplete(FUnrealAnalyzerHttpUtils::JsonResponse(JsonString(Root)));
@@ -918,10 +933,20 @@ namespace
 		const int32 Limit = FMath::Clamp(FCString::Atoi(*FUnrealAnalyzerHttpUtils::GetOptionalQueryParam(Request, TEXT("limit"), TEXT("65536"))), 1, 262144);
 
 		TSharedPtr<FAsyncJsonJob> Job;
+		EAsyncJsonJobStatus StatusSnapshot = EAsyncJsonJobStatus::Pending;
+		FString ResultSnapshot;
 		{
 			FScopeLock Lock(&GAsyncJobsMutex);
 			CleanupOldJobs_Locked();
 			Job = GAsyncJobs.FindRef(JobId);
+			if (Job.IsValid())
+			{
+				StatusSnapshot = Job->Status;
+				if (StatusSnapshot == EAsyncJsonJobStatus::Done)
+				{
+					ResultSnapshot = Job->ResultJson;
+				}
+			}
 		}
 
 		if (!Job.IsValid())
@@ -930,16 +955,16 @@ namespace
 			return true;
 		}
 
-		if (Job->Status != EAsyncJsonJobStatus::Done)
+		if (StatusSnapshot != EAsyncJsonJobStatus::Done)
 		{
-			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Job not ready"), EHttpServerResponseCodes::Accepted, JobStatusToString(Job->Status)));
+			OnComplete(FUnrealAnalyzerHttpUtils::JsonError(TEXT("Job not ready"), EHttpServerResponseCodes::Accepted, JobStatusToString(StatusSnapshot)));
 			return true;
 		}
 
-		const int32 Total = Job->ResultJson.Len();
+		const int32 Total = ResultSnapshot.Len();
 		const int32 SafeOffset = FMath::Clamp(Offset, 0, Total);
 		const int32 SafeLen = FMath::Clamp(Limit, 1, FMath::Max(1, Total - SafeOffset));
-		const FString Chunk = Job->ResultJson.Mid(SafeOffset, SafeLen);
+		const FString Chunk = ResultSnapshot.Mid(SafeOffset, SafeLen);
 		const int32 NextOffset = SafeOffset + SafeLen;
 
 		TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
@@ -991,28 +1016,48 @@ namespace
 
 		Async(EAsyncExecution::ThreadPool, [JobId, Job, StartPackage, Direction, MaxDepth]()
 		{
-			Job->Status = EAsyncJsonJobStatus::Running;
-			Job->CreatedAt = FDateTime::UtcNow();
-			Job->Error.Empty();
-			Job->ResultJson.Empty();
+			// IMPORTANT:
+			// AssetRegistry in-memory enumeration is not thread-safe.
+			// Build the chain on the Game Thread to avoid UE crash:
+			//   Assertion failed: IsInGameThread() || IsInAsyncLoadingThread() ...
+			AsyncTask(ENamedThreads::GameThread, [JobId, Job, StartPackage, Direction, MaxDepth]()
+			{
+				{
+					FScopeLock Lock(&GAsyncJobsMutex);
+					if (Job.IsValid())
+					{
+						Job->Status = EAsyncJsonJobStatus::Running;
+						Job->CreatedAt = FDateTime::UtcNow();
+						Job->Error.Empty();
+						Job->ResultJson.Empty();
+					}
+				}
 
-			TSet<FString> Visited;
-			Visited.Add(StartPackage);
+				TSet<FString> Visited;
+				Visited.Add(StartPackage);
 
-			// Build chain
-			TSharedPtr<FJsonObject> Chain = BuildRefChainNodeJson(StartPackage, 0, FMath::Max(0, MaxDepth), Direction, Visited);
+				// Build chain (GameThread-safe)
+				TSharedPtr<FJsonObject> Chain = BuildRefChainNodeJson(StartPackage, 0, FMath::Max(0, MaxDepth), Direction, Visited);
 
-			TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
-			Root->SetBoolField(TEXT("ok"), true);
-			Root->SetStringField(TEXT("start"), StartPackage);
-			Root->SetStringField(TEXT("direction"), Direction);
-			Root->SetNumberField(TEXT("max_depth"), MaxDepth);
-			Root->SetObjectField(TEXT("chain"), Chain);
-			Root->SetNumberField(TEXT("unique_nodes"), Visited.Num());
+				TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
+				Root->SetBoolField(TEXT("ok"), true);
+				Root->SetStringField(TEXT("start"), StartPackage);
+				Root->SetStringField(TEXT("direction"), Direction);
+				Root->SetNumberField(TEXT("max_depth"), MaxDepth);
+				Root->SetObjectField(TEXT("chain"), Chain);
+				Root->SetNumberField(TEXT("unique_nodes"), Visited.Num());
 
-			// Serialize
-			Job->ResultJson = JsonString(Root);
-			Job->Status = EAsyncJsonJobStatus::Done;
+				const FString Serialized = JsonString(Root);
+
+				{
+					FScopeLock Lock(&GAsyncJobsMutex);
+					if (Job.IsValid())
+					{
+						Job->ResultJson = Serialized;
+						Job->Status = EAsyncJsonJobStatus::Done;
+					}
+				}
+			});
 		});
 
 		TSharedRef<FJsonObject> Ack = MakeShared<FJsonObject>();
