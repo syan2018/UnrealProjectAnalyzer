@@ -113,12 +113,12 @@ async def search(
         - cpp_matches / blueprint_matches / asset_matches (if searched)
     """
     # Resolve domains to search
-    if domain == "all":
+        if domain == "all":
         resolved_domains: list[Literal["cpp", "blueprint", "asset"]] = ["cpp", "blueprint", "asset"]
-    elif domain in ("cpp", "blueprint", "asset"):
-        resolved_domains = [domain]
-    else:
-        resolved_domains = ["cpp", "blueprint", "asset"]
+        elif domain in ("cpp", "blueprint", "asset"):
+            resolved_domains = [domain]
+        else:
+            resolved_domains = ["cpp", "blueprint", "asset"]
 
     results = {
         "query": query,
@@ -168,7 +168,7 @@ async def search(
                 for m in bp_result.get("matches", []):
                     path = str(m.get("path", ""))
                     if path:
-                        merged[path] = m
+                    merged[path] = m
 
             matches = list(merged.values())
 
@@ -216,7 +216,7 @@ async def search(
                 for m in asset_result.get("matches", []):
                     path = str(m.get("path", ""))
                     if path:
-                        merged[path] = m
+                    merged[path] = m
 
             matches = list(merged.values())
 

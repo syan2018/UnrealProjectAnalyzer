@@ -63,3 +63,16 @@ reference/                      # 参考项目 (不修改)
 | C++ 解析 | tree-sitter + tree-sitter-cpp |
 | UE 通信 | HTTP (自研插件) |
 | UE 版本 | 5.3+ |
+
+## 当前版本：v0.3.1
+
+**8 个工具**（4 核心 + 4 特殊）：
+
+| 核心工具 | 特殊工具 |
+|----------|----------|
+| `search` | `get_blueprint_graph` |
+| `get_hierarchy` | `detect_ue_patterns` |
+| `get_references` | `trace_reference_chain` |
+| `get_details` | `find_cpp_class_usage` |
+
+详见 [mcp-tools-design.mdc](mdc:.cursor/rules/mcp-tools-design.mdc)

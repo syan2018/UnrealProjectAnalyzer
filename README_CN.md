@@ -18,12 +18,18 @@
 - **搜索范围控制 (v0.2.0)**：支持只搜索项目代码、引擎代码或全部
 - **统一搜索 (v0.2.0)**：类似 grep 的跨域统一搜索接口
 
-## v0.3.0 新特性
+## v0.3.1 新特性
 
-- **最小工具集**：从 22 个精简到 **9 个工具**（4 核心 + 5 特殊）
+- **进一步精简**：精简到 **8 个工具**（4 核心 + 4 特殊）
+- **最小参数**：删除冗余参数，降低认知负担
+- **软引用追踪**：Blueprint CDO 变量默认值现在包含在引用链中
+- **Mermaid 输出**：`get_blueprint_graph` 默认输出 Mermaid 格式，便于可视化
+- **C++ 引用聚合**：按文件分组结果，区分定义和使用
+
+### v0.3.0 变更
+- **最小工具集**：从 22 个精简到 9 个工具
 - **统一接口**：`search`、`get_hierarchy`、`get_references`、`get_details`
 - **三层搜索**：`scope` 参数支持 `project`/`engine`/`all`
-- **健康检查**：`/health` 端点验证 UE 插件状态
 
 ## 快速开始（推荐方式）
 
@@ -157,26 +163,25 @@ await analyze_cpp_class("ACharacter", scope="engine")
 await find_cpp_references("UAbilitySystemComponent", scope="all")
 ```
 
-## 可用工具（共 9 个）
+## 可用工具（共 8 个）
 
 ### 核心工具（4 个）
 
-| 工具 | 描述 |
-|------|------|
-| `search` | 统一搜索 C++/蓝图/资产 |
-| `get_hierarchy` | 获取继承层次（C++ 或蓝图） |
-| `get_references` | 获取引用关系（出/入方向） |
-| `get_details` | 获取详细信息（C++/蓝图/资产） |
+| 工具 | 参数 | 描述 |
+|------|------|------|
+| `search` | `query`, `domain`, `scope`, `type_filter`, `max_results` | 统一搜索 C++/蓝图/资产 |
+| `get_hierarchy` | `name`, `domain`, `scope` | 获取继承层次（C++ 或蓝图） |
+| `get_references` | `path`, `domain`, `scope`, `direction` | 获取引用关系（出/入/双向） |
+| `get_details` | `path`, `domain`, `scope` | 获取详细信息（C++/蓝图/资产） |
 
-### 特殊工具（5 个）
+### 特殊工具（4 个）
 
-| 工具 | 描述 | 为什么需要 |
-|------|------|------------|
-| `get_blueprint_graph` | 获取蓝图节点图 | 需要图结构返回 |
-| `detect_ue_patterns` | 检测 UPROPERTY/UFUNCTION | UE 宏分析 |
-| `get_cpp_blueprint_exposure` | 获取 C++ 暴露给蓝图的 API | C++→BP 接口汇总 |
-| `trace_reference_chain` | 跨域引用链追踪 | 递归深度遍历 |
-| `find_cpp_class_usage` | 查找 C++ 类使用 | BP 中的 C++ 类查找 |
+| 工具 | 参数 | 描述 |
+|------|------|------|
+| `get_blueprint_graph` | `bp_path`, `graph_name`, `format` | 蓝图节点图（Mermaid/摘要/JSON） |
+| `detect_ue_patterns` | `file_path`, `format` | UE 宏检测（详细/摘要） |
+| `trace_reference_chain` | `start_asset`, `max_depth`, `direction` | 跨域引用链追踪 |
+| `find_cpp_class_usage` | `cpp_class`, `scope`, `max_results` | C++ 类在蓝图和 C++ 中的使用 |
 
 ## 插件设置
 
@@ -195,20 +200,18 @@ await find_cpp_references("UAbilitySystemComponent", scope="all")
 ### 使用统一搜索
 
 ```python
-# 跨域搜索 "Health"
-result = await search(
-    query="Health",
-    domain="all",      # "cpp", "blueprint", "asset", "all"
-    scope="project",   # "project", "engine", "all"
-    max_results=100
-)
+# 跨域搜索 "Health"（默认 domain="all", scope="project"）
+result = await search(query="Health")
+
+# 只搜索蓝图，按父类过滤
+result = await search(query="GA_*", domain="blueprint", type_filter="GameplayAbility")
 
 # 获取 C++ 类的继承层次
-hierarchy = await get_hierarchy(
-    name="ACharacter", 
-    domain="cpp", 
-    scope="engine"
-)
+hierarchy = await get_hierarchy(name="ACharacter", domain="cpp", scope="engine")
+
+# 获取蓝图图表（默认 Mermaid 格式）
+graph = await get_blueprint_graph(bp_path="/Game/BP_Player")
+# graph["mermaid"] 可直接粘贴到 https://mermaid.live 查看
 ```
 
 ### 追踪 GAS 能力
@@ -274,7 +277,7 @@ curl http://localhost:8080/health
   "ok": true,
   "status": "running",
   "plugin": "UnrealProjectAnalyzer",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "ue_version": "5.3.2-xxx",
   "project_name": "LyraStarterGame"
 }

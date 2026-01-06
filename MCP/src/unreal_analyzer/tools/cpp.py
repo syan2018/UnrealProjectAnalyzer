@@ -163,7 +163,7 @@ async def detect_ue_patterns(
         return await analyzer.get_blueprint_exposure(file_path)
     else:
         # Return detailed pattern list
-        return await analyzer.detect_patterns(file_path)
+    return await analyzer.detect_patterns(file_path)
 
 
 # Alias for backward compatibility

@@ -6,42 +6,56 @@ description: "MCP 工具设计原则和完整工具清单"
 
 ## 设计原则
 
-**最小困惑度，最大能力覆盖。**
+**最小信息熵，最大能力覆盖。**
 
 1. 用最少的工具达成最完整的能力
 2. 统一接口优于分散工具
-3. 返回结构化数据，包含足够上下文
-4. 错误信息友好，帮助用户定位问题
+3. 参数最小化：删除冗余参数，合并语义相同的参数
+4. 返回结构化数据，包含足够上下文
+5. 错误信息友好，帮助用户定位问题
 
-## 工具清单（v0.3.0，共 9 个）
+## 工具清单（v0.3.1，共 8 个）
 
 ### 核心工具（4 个）
 
-| 工具 | 用途 | 参数 |
+| 工具 | 参数 | 用途 |
 |------|------|------|
-| `search` | 统一搜索 C++/Blueprint/Asset | domain, scope, query |
-| `get_hierarchy` | 获取继承层次 | name, domain, scope |
-| `get_references` | 获取引用关系 | path, domain, direction |
-| `get_details` | 获取详细信息 | path, domain, scope |
+| `search` | `query`, `domain`, `scope`, `type_filter`, `max_results` | 统一搜索 C++/Blueprint/Asset |
+| `get_hierarchy` | `name`, `domain`, `scope` | 获取继承层次 |
+| `get_references` | `path`, `domain`, `scope`, `direction` | 获取引用关系 |
+| `get_details` | `path`, `domain`, `scope` | 获取详细信息 |
 
-### 特殊工具（5 个）
+### 特殊工具（4 个）
 
-| 工具 | 用途 | 为什么需要 |
-|------|------|------------|
-| `get_blueprint_graph` | 获取蓝图节点图 | 需要图结构返回 |
-| `detect_ue_patterns` | 检测 UE 模式 | UPROPERTY/UFUNCTION 分析 |
-| `get_cpp_blueprint_exposure` | 获取 C++ 暴露 API | 专门的 C++→BP 接口分析 |
-| `trace_reference_chain` | 跨域引用链追踪 | 递归深度遍历 |
-| `find_cpp_class_usage` | C++ 类使用查找 | BP 中的 C++ 类使用 |
+| 工具 | 参数 | 用途 |
+|------|------|------|
+| `get_blueprint_graph` | `bp_path`, `graph_name`, `format` | 蓝图节点图（Mermaid/摘要/JSON） |
+| `detect_ue_patterns` | `file_path`, `format` | UE 宏检测（详细/摘要） |
+| `trace_reference_chain` | `start_asset`, `max_depth`, `direction` | 跨域引用链追踪 |
+| `find_cpp_class_usage` | `cpp_class`, `scope`, `max_results` | C++ 类使用查找 |
 
-## 三层搜索模型
+## 参数设计原则
 
-```
-scope 参数：
-├── "project"  → 只搜索项目源码（默认，快）
-├── "engine"   → 只搜索引擎源码
-└── "all"      → 搜索所有（慢但全面）
-```
+### 已统一的参数命名
+
+| 参数 | 可选值 | 说明 |
+|------|--------|------|
+| `domain` | `cpp`, `blueprint`, `asset`, `all` | 搜索/操作域 |
+| `scope` | `project`, `engine`, `all` | 搜索范围 |
+| `direction` | `outgoing`, `incoming`, `both` | 引用方向（统一命名） |
+| `format` | `mermaid`, `summary`, `json` / `detailed`, `summary` | 输出格式 |
+| `type_filter` | 字符串 | 类型过滤（合并了 asset_type 和 class_filter） |
+
+### 已删除的冗余参数
+
+- `domains` → 合并到 `domain`（单值即可）
+- `asset_type` + `class_filter` → 合并为 `type_filter`
+- `include_comments` → 内部默认 `true`
+- `query_mode` → 内部默认 `smart`
+- `file_pattern` → 内部默认 `*.{h,cpp}`
+- `include_interfaces` → 内部默认 `true`
+- `include_cpp` → 内部默认 `true`
+- `aggregate_results` → 内部默认 `true`
 
 ## 典型调用流程
 
@@ -55,13 +69,10 @@ await search(query="GA_Hero_Dash", domain="blueprint")
 await get_hierarchy(name="/Game/.../GA_Hero_Dash", domain="blueprint")
 
 # 3. 获取依赖
-await get_references(path="/Game/.../GA_Hero_Dash", domain="blueprint", direction="outgoing")
+await get_references(path="/Game/.../GA_Hero_Dash", direction="outgoing")
 
-# 4. 分析 C++ 父类
-await get_details(path="UGameplayAbility", domain="cpp", scope="engine")
-
-# 5. 获取节点图（需要专门工具）
-await get_blueprint_graph(bp_path="/Game/.../GA_Hero_Dash", graph_name="EventGraph")
+# 4. 获取节点图（Mermaid 格式）
+await get_blueprint_graph(bp_path="/Game/.../GA_Hero_Dash")
 ```
 
 ### 场景：追踪资产引用
@@ -70,21 +81,18 @@ await get_blueprint_graph(bp_path="/Game/.../GA_Hero_Dash", graph_name="EventGra
 # 1. 搜索资产
 await search(query="SK_Mannequin", domain="asset")
 
-# 2. 获取引用者
-await get_references(path="/Game/.../SK_Mannequin", domain="asset", direction="incoming")
-
-# 3. 深度追踪
-await trace_reference_chain(start_asset="/Game/.../SK_Mannequin", max_depth=2)
+# 2. 深度追踪（包含软引用）
+await trace_reference_chain(start_asset="/Game/.../SK_Mannequin", max_depth=3)
 ```
 
 ### 场景：分析 C++ 类暴露
 
 ```python
-# 1. 检测 UE 模式
+# 详细模式：返回所有 UE 宏
 await detect_ue_patterns(file_path="Source/MyGame/MyActor.h")
 
-# 2. 获取 Blueprint 暴露汇总
-await get_cpp_blueprint_exposure(file_path="Source/MyGame/MyActor.h")
+# 摘要模式：只返回 Blueprint 暴露的 API
+await detect_ue_patterns(file_path="Source/MyGame/MyActor.h", format="summary")
 ```
 
 ## HTTP API（UE 插件）
@@ -92,30 +100,26 @@ await get_cpp_blueprint_exposure(file_path="Source/MyGame/MyActor.h")
 ```
 GET /health                           → 健康检查
 GET /blueprint/graph?bp_path=...      → 蓝图节点图
-GET /analysis/reference-chain?...     → 引用链追踪
+GET /blueprint/soft-references?...    → 蓝图软引用（CDO 变量默认值）
+GET /analysis/reference-chain?...     → 引用链追踪（含软引用）
 GET /analysis/cpp-class-usage?...     → C++ 类使用
 GET /analysis/job/status?id=...       → 异步任务状态
 GET /analysis/job/result?id=...       → 异步任务结果
 ```
 
-## 与 v0.2.0 对比
+## 版本变更
 
 | 版本 | 工具数 | 变化 |
 |------|--------|------|
 | v0.2.0 | 22 | 原始工具 + unified |
-| v0.3.0 | 9 | 仅保留 unified + 必要特殊工具 |
+| v0.3.0 | 9 | 精简：unified + 必要特殊工具 |
+| v0.3.1 | 8 | 进一步精简：合并 detect_ue_patterns + get_cpp_blueprint_exposure |
 
-删除的工具（被 unified 替代）：
-- `search_blueprints` → `search(domain="blueprint")`
-- `search_assets` → `search(domain="asset")`
-- `search_cpp_code` → `search(domain="cpp")`
-- `get_blueprint_hierarchy` → `get_hierarchy(domain="blueprint")`
-- `get_cpp_class_hierarchy` → `get_hierarchy(domain="cpp")`
-- `get_blueprint_dependencies` → `get_references(direction="outgoing")`
-- `get_blueprint_referencers` → `get_references(direction="incoming")`
-- `get_asset_references` → `get_references(direction="outgoing")`
-- `get_asset_referencers` → `get_references(direction="incoming")`
-- `find_cpp_references` → `get_references(domain="cpp")`
-- `get_blueprint_details` → `get_details(domain="blueprint")`
-- `get_asset_metadata` → `get_details(domain="asset")`
-- `analyze_cpp_class` → `get_details(domain="cpp")`
+### v0.3.1 参数精简
+
+| 工具 | 精简前参数数 | 精简后参数数 |
+|------|-------------|-------------|
+| `search` | 10 | 5 |
+| `get_hierarchy` | 4 | 3 |
+| `find_cpp_class_usage` | 5 | 3 |
+| `get_blueprint_graph` | 3 | 3 |

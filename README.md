@@ -18,12 +18,18 @@ MCP Server for analyzing Unreal Engine 5 projects - Blueprint, Asset, and C++ so
 - **Scope Control (v0.2.0)**: Search project-only, engine-only, or both
 - **Unified Search (v0.2.0)**: grep-like interface across all domains
 
-## What's New in v0.3.0
+## What's New in v0.3.1
 
-- **Minimal Tool Set**: Reduced from 22 to **9 tools** (4 unified + 5 specialized)
+- **Further Simplified**: Reduced to **8 tools** (4 unified + 4 specialized)
+- **Minimal Parameters**: Removed redundant parameters for lower cognitive load
+- **Soft Reference Tracking**: Blueprint CDO variable defaults now included in reference chains
+- **Mermaid Output**: `get_blueprint_graph` defaults to Mermaid format for easy visualization
+- **C++ Reference Aggregation**: Groups results by file, distinguishes definition vs usage
+
+### v0.3.0 Changes
+- **Minimal Tool Set**: Reduced from 22 to 9 tools
 - **Unified Interface**: `search`, `get_hierarchy`, `get_references`, `get_details`
 - **Three-Layer Search**: `scope` parameter supports `project`/`engine`/`all`
-- **Health Check**: `/health` endpoint for UE plugin status
 
 ## Quick Start (Recommended)
 
@@ -148,26 +154,25 @@ await analyze_cpp_class("ACharacter", scope="engine")
 await find_cpp_references("UAbilitySystemComponent", scope="all")
 ```
 
-## Available Tools (9 total)
+## Available Tools (8 total)
 
 ### Core Tools (4)
 
-| Tool | Description |
-|------|-------------|
-| `search` | Unified search across C++/Blueprint/Asset |
-| `get_hierarchy` | Get inheritance hierarchy (C++ or Blueprint) |
-| `get_references` | Get references (outgoing, incoming, or both) |
-| `get_details` | Get detailed information (C++/Blueprint/Asset) |
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `search` | `query`, `domain`, `scope`, `type_filter`, `max_results` | Unified search across C++/Blueprint/Asset |
+| `get_hierarchy` | `name`, `domain`, `scope` | Get inheritance hierarchy (C++ or Blueprint) |
+| `get_references` | `path`, `domain`, `scope`, `direction` | Get references (outgoing/incoming/both) |
+| `get_details` | `path`, `domain`, `scope` | Get detailed information (C++/Blueprint/Asset) |
 
-### Specialized Tools (5)
+### Specialized Tools (4)
 
-| Tool | Description | Why Needed |
-|------|-------------|------------|
-| `get_blueprint_graph` | Get blueprint node graph | Requires graph structure |
-| `detect_ue_patterns` | Detect UPROPERTY/UFUNCTION | UE macro analysis |
-| `get_cpp_blueprint_exposure` | Get C++ Blueprint-exposed API | C++→BP interface summary |
-| `trace_reference_chain` | Trace cross-domain reference chain | Recursive traversal |
-| `find_cpp_class_usage` | Find C++ class usage in BP | BP→C++ usage lookup |
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `get_blueprint_graph` | `bp_path`, `graph_name`, `format` | Blueprint node graph (Mermaid/summary/JSON) |
+| `detect_ue_patterns` | `file_path`, `format` | UE macro detection (detailed/summary) |
+| `trace_reference_chain` | `start_asset`, `max_depth`, `direction` | Cross-domain reference chain |
+| `find_cpp_class_usage` | `cpp_class`, `scope`, `max_results` | C++ class usage in Blueprint + C++ |
 
 ## Plugin Settings
 
@@ -187,19 +192,17 @@ await find_cpp_references("UAbilitySystemComponent", scope="all")
 
 ```python
 # Search for "Health" across all domains
-result = await search(
-    query="Health",
-    domain="all",      # "cpp", "blueprint", "asset", "all"
-    scope="project",   # "project", "engine", "all"
-    max_results=100
-)
+result = await search(query="Health")  # domain="all", scope="project" by default
+
+# Search only Blueprints with parent class filter
+result = await search(query="GA_*", domain="blueprint", type_filter="GameplayAbility")
 
 # Get hierarchy for a C++ class
-hierarchy = await get_hierarchy(
-    name="ACharacter", 
-    domain="cpp", 
-    scope="engine"
-)
+hierarchy = await get_hierarchy(name="ACharacter", domain="cpp", scope="engine")
+
+# Get Blueprint graph as Mermaid (default format)
+graph = await get_blueprint_graph(bp_path="/Game/BP_Player")
+# graph["mermaid"] can be pasted to https://mermaid.live
 ```
 
 ### Trace a GAS Ability
@@ -243,7 +246,7 @@ Response:
   "ok": true,
   "status": "running",
   "plugin": "UnrealProjectAnalyzer",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "ue_version": "5.3.2-xxx",
   "project_name": "LyraStarterGame"
 }
