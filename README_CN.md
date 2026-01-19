@@ -1,4 +1,4 @@
-# Unreal Project Analyzer
+﻿# Unreal Copilot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -51,21 +51,21 @@ uv sync
 
 ### 1. 安装插件
 
-将 `UnrealProjectAnalyzer` 文件夹复制到你的 Unreal 项目的 `Plugins/` 目录：
+将 `UnrealCopilot` 文件夹复制到你的 Unreal 项目的 `Plugins/` 目录：
 
 ```
 YourProject/
 ├── Plugins/
-│   └── UnrealProjectAnalyzer/    ← 这个文件夹
+│   └── UnrealCopilot/    ← 这个文件夹
 │       ├── Source/
 │       ├── Mcp/
-│       └── UnrealProjectAnalyzer.uplugin
+│       └── UnrealCopilot.uplugin
 ```
 
 ### 2. 配置 uv 路径
 
 1. 打开 Unreal Editor
-2. 进入 **Edit → Project Settings → Plugins → Unreal Project Analyzer**
+2. 进入 **Edit → Project Settings → Plugins → Unreal Copilot**
 3. 设置 **Uv Executable** 为你的 uv 安装路径，例如：
    - Windows: `C:\Users\你的用户名\.local\bin\uv.exe` 或 `C:\Users\你的用户名\anaconda3\Scripts\uv.exe`
    - macOS/Linux: `/usr/local/bin/uv` 或 `~/.local/bin/uv`
@@ -81,9 +81,9 @@ which uv
 
 ### 3. 启动 MCP 服务器
 
-1. 在 Unreal Editor 菜单：**Tools → Unreal Project Analyzer → Start MCP Server**
+1. 在 Unreal Editor 菜单：**Tools → Unreal Copilot → Start MCP Server**
 2. 检查 Output Log / 通知是否显示：`MCP Server is running`
-3. 通过 **Tools → Unreal Project Analyzer → Copy MCP URL** 复制 MCP 地址
+3. 通过 **Tools → Unreal Copilot → Copy MCP URL** 复制 MCP 地址
 
 ### 4. 连接 Cursor
 
@@ -104,7 +104,7 @@ which uv
 如果你更喜欢在 Unreal Editor 外部运行 MCP 服务器：
 
 ```bash
-cd /path/to/UnrealProjectAnalyzer
+cd /path/to/UnrealCopilot
 
 # 安装依赖
 uv sync
@@ -143,7 +143,7 @@ uv run unreal-analyzer -- \
                                  │ HTTP
                                  ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│            UnrealProjectAnalyzer 插件 (Editor 内运行)             │
+│            UnrealCopilot 插件 (Editor 内运行)             │
 │  ┌─────────────────────────┐  ┌────────────────────────────────┐ │
 │  │   HTTP Server (:8080)   │  │   MCP Server (UE Python)       │ │
 │  │   蓝图/资产 API          │  │   由 AnalyzerSubsystem 管理     │ │
@@ -287,7 +287,7 @@ curl http://localhost:8080/health
 {
   "ok": true,
   "status": "running",
-  "plugin": "UnrealProjectAnalyzer",
+  "plugin": "UnrealCopilot",
   "version": "0.3.1",
   "ue_version": "5.3.2-xxx",
   "project_name": "LyraStarterGame"
@@ -334,3 +334,5 @@ uv run unreal-analyzer --print-config
 ## 许可证
 
 MIT
+
+

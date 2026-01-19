@@ -1,4 +1,4 @@
-# Unreal Project Analyzer
+﻿# Unreal Copilot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -52,30 +52,30 @@ Then open Unreal Editor and start the MCP server.
 
 ### 1. Install the Plugin
 
-Copy the `UnrealProjectAnalyzer` folder to your Unreal project's `Plugins/` directory:
+Copy the `UnrealCopilot` folder to your Unreal project's `Plugins/` directory:
 
 ```
 YourProject/
 ├── Plugins/
-│   └── UnrealProjectAnalyzer/    ← this folder
+│   └── UnrealCopilot/    ← this folder
 │       ├── Source/
 │       ├── Mcp/
-│       └── UnrealProjectAnalyzer.uplugin
+│       └── UnrealCopilot.uplugin
 ```
 
 ### 2. Configure uv Path
 
 1. Open Unreal Editor
-2. Go to **Edit → Project Settings → Plugins → Unreal Project Analyzer**
+2. Go to **Edit → Project Settings → Plugins → Unreal Copilot**
 3. Set **Uv Executable** to your uv installation path, e.g.:
    - Windows: `C:\Users\YourName\.local\bin\uv.exe` or `C:\Users\YourName\anaconda3\Scripts\uv.exe`
    - macOS/Linux: `/usr/local/bin/uv` or `~/.local/bin/uv`
 
 ### 3. Start MCP Server
 
-1. In Unreal Editor menu: **Tools → Unreal Project Analyzer → Start MCP Server**
+1. In Unreal Editor menu: **Tools → Unreal Copilot → Start MCP Server**
 2. Check Output Log / notifications for: `MCP Server is running`
-3. Copy MCP URL via: **Tools → Unreal Project Analyzer → Copy MCP URL**
+3. Copy MCP URL via: **Tools → Unreal Copilot → Copy MCP URL**
 
 ### 4. Connect from Cursor
 
@@ -96,7 +96,7 @@ Add to your Cursor MCP settings (use the copied URL):
 If you prefer running the MCP Server outside of Unreal Editor:
 
 ```bash
-cd /path/to/UnrealProjectAnalyzer
+cd /path/to/UnrealCopilot
 
 # Install dependencies
 uv sync
@@ -135,7 +135,7 @@ uv run unreal-analyzer -- \
                                  │ HTTP
                                  ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│              UnrealProjectAnalyzer Plugin (Editor)               │
+│              UnrealCopilot Plugin (Editor)               │
 │  ┌─────────────────────────┐  ┌────────────────────────────────┐ │
 │  │   HTTP Server (:8080)   │  │   MCP Server (UE Python)       │ │
 │  │   Blueprint/Asset API   │  │   Managed by AnalyzerSubsystem │ │
@@ -257,7 +257,7 @@ Response:
 {
   "ok": true,
   "status": "running",
-  "plugin": "UnrealProjectAnalyzer",
+  "plugin": "UnrealCopilot",
   "version": "0.3.1",
   "ue_version": "5.3.2-xxx",
   "project_name": "LyraStarterGame"
@@ -290,3 +290,5 @@ This project was inspired by and references implementations from:
 ## License
 
 MIT
+
+

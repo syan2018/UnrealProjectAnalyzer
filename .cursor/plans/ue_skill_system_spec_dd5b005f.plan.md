@@ -1,4 +1,4 @@
----
+﻿---
 name: UE Skill System Spec
 overview: 生成一份面向长期维护的 UE Skill System 全面规格文档：明确为何必须引入引擎内 C++ 接口层（CppSkillApiSubsystem），定义 Skill 包结构（SKILL.md+scripts/docs）、三 MCP 工具（list/read/run）契约、Python SkillRunner 行为、以及各子系统（UE C++/UE Python/MCP/Analyzer HTTP）之间的连接关系与落地里程碑。
 todos:
@@ -21,11 +21,11 @@ todos:
       - phase-a-tools
 ---
 
-# UE Skill System（UnrealProjectAnalyzer）全面规格文档（Spec）
+# UE Skill System（UnrealCopilot）全面规格文档（Spec）
 
 ## 0. 文档定位
 
-本 Spec 用于指导 UnrealProjectAnalyzer 从“分析型 MCP”演进到“分析 + 可执行技能（Skill）”体系。
+本 Spec 用于指导 UnrealCopilot 从“分析型 MCP”演进到“分析 + 可执行技能（Skill）”体系。
 
 - **读者**：插件维护者、未来贡献者、使用 MCP 的 Agent（Cursor/其它）
 - **目标**：让任何后来者仅凭本文档就能理解：
@@ -137,7 +137,7 @@ sequenceDiagram
 
 ### 4.1 目录位置
 
-- `Plugins/UnrealProjectAnalyzer/skills/<skill_name>/`
+- `Plugins/UnrealCopilot/skills/<skill_name>/`
 
 ### 4.2 Skill 的组成
 
@@ -148,7 +148,7 @@ sequenceDiagram
 目录示例：
 
 ```text
-Plugins/UnrealProjectAnalyzer/skills/
+Plugins/UnrealCopilot/skills/
   blueprint_read/
     SKILL.md
     docs/
@@ -267,15 +267,15 @@ tags: [blueprint, write]
 
 > 这些原语的返回应当结构化（dict），但不要求强 schema；说明写入相应 skill 文档。
 
-## 8. 与现有 UnrealProjectAnalyzer 的连接点（基于当前代码结构）
+## 8. 与现有 UnrealCopilot 的连接点（基于当前代码结构）
 
 - UE 内 Python MCP 生命周期（已存在）：
-  - `Plugins/UnrealProjectAnalyzer/Content/Python/init_analyzer.py`
-  - `Plugins/UnrealProjectAnalyzer/Source/UnrealProjectAnalyzer/Private/AnalyzerSubsystem.cpp`
+  - `Plugins/UnrealCopilot/Content/Python/init_analyzer.py`
+  - `Plugins/UnrealCopilot/Source/UnrealCopilot/Private/AnalyzerSubsystem.cpp`
 - MCP tools 注册入口（已存在）：
-  - `Plugins/UnrealProjectAnalyzer/Content/Python/analyzer/server.py`
+  - `Plugins/UnrealCopilot/Content/Python/analyzer/server.py`
 - HTTP Analyzer 路由（已存在，保留定位为分析/跨进程）：
-  - `Plugins/UnrealProjectAnalyzer/Source/UnrealProjectAnalyzer/Private/UnrealAnalyzerHttpRoutes.cpp`
+  - `Plugins/UnrealCopilot/Source/UnrealCopilot/Private/UnrealAnalyzerHttpRoutes.cpp`
 
 ## 9. 落地路线（重大改动必须分阶段，但不降低关键组件）
 
@@ -304,7 +304,7 @@ tags: [blueprint, write]
 
 ## 11. Implementation Todos（可追踪）
 
-- **A1**：新增 `Plugins/UnrealProjectAnalyzer/skills/`，放入至少 2 个示例 skills（一个纯文档，一个脚本）
+- **A1**：新增 `Plugins/UnrealCopilot/skills/`，放入至少 2 个示例 skills（一个纯文档，一个脚本）
 - **A2**：实现 SkillRunner（Python）并提供：discover/list/read/run/inline exec、stdout 捕获、路径防护
 - **A3**：在 `server.py` 注册 3 tools 并接入 runner
 - **B1**：新增 `CppSkillApiSubsystem`（C++）并实现最小原语

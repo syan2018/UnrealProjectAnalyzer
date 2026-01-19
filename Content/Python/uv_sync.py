@@ -1,5 +1,5 @@
-"""
-Automatic dependency sync for UnrealProjectAnalyzer.
+﻿"""
+Automatic dependency sync for UnrealCopilot.
 
 Uses uv to create a local virtual environment (.venv) from pyproject.toml.
 
@@ -67,7 +67,7 @@ def check_dependencies() -> list[str]:
             __import__(import_name)
         except Exception as e:
             # Print the real reason: many packages fail due to missing DLL / unprocessed .pth.
-            print(f"[UnrealProjectAnalyzer] Import check failed for {package_name}: {type(e).__name__}: {e}")
+            print(f"[UnrealCopilot] Import check failed for {package_name}: {type(e).__name__}: {e}")
             LAST_ERROR = f"{package_name}: {type(e).__name__}: {e}"
             # Uncomment if you need deep debugging:
             # print(traceback.format_exc())
@@ -84,10 +84,10 @@ def run_uv_sync() -> bool:
     pyproject_path = python_dir / "pyproject.toml"
 
     if not pyproject_path.exists():
-        print(f"[UnrealProjectAnalyzer] Error: pyproject.toml not found at {pyproject_path}")
+        print(f"[UnrealCopilot] Error: pyproject.toml not found at {pyproject_path}")
         return False
 
-    print("[UnrealProjectAnalyzer] Syncing dependencies with uv (creating .venv)...")
+    print("[UnrealCopilot] Syncing dependencies with uv (creating .venv)...")
 
     try:
         result = subprocess.run(
@@ -101,23 +101,23 @@ def run_uv_sync() -> bool:
 
         if result.returncode == 0:
             venv_site = get_venv_site_packages()
-            print(f"[UnrealProjectAnalyzer] uv sync OK. venv site-packages: {venv_site}")
+            print(f"[UnrealCopilot] uv sync OK. venv site-packages: {venv_site}")
             return True
         else:
-            print(f"[UnrealProjectAnalyzer] Error: {result.stderr}")
+            print(f"[UnrealCopilot] Error: {result.stderr}")
             LAST_ERROR = result.stderr.strip() or "uv sync failed"
             return False
 
     except subprocess.TimeoutExpired:
-        print("[UnrealProjectAnalyzer] Error: uv sync timed out")
+        print("[UnrealCopilot] Error: uv sync timed out")
         LAST_ERROR = "uv sync timed out"
         return False
     except FileNotFoundError:
-        print("[UnrealProjectAnalyzer] Error: 'uv' not found. Install from https://docs.astral.sh/uv/")
+        print("[UnrealCopilot] Error: 'uv' not found. Install from https://docs.astral.sh/uv/")
         LAST_ERROR = "uv not found"
         return False
     except Exception as e:
-        print(f"[UnrealProjectAnalyzer] Error: {e}")
+        print(f"[UnrealCopilot] Error: {e}")
         LAST_ERROR = f"{type(e).__name__}: {e}"
         return False
 
@@ -133,10 +133,10 @@ def ensure_dependencies() -> bool:
     if not missing:
         LAST_MISSING = []
         LAST_ERROR = None
-        print("[UnrealProjectAnalyzer] All dependencies satisfied")
+        print("[UnrealCopilot] All dependencies satisfied")
         return True
 
-    print(f"[UnrealProjectAnalyzer] Missing: {', '.join(missing)}")
+    print(f"[UnrealCopilot] Missing: {', '.join(missing)}")
 
     if run_uv_sync():
         # Refresh import system
@@ -151,14 +151,15 @@ def ensure_dependencies() -> bool:
             LAST_ERROR = None
             return True
 
-        print(f"[UnrealProjectAnalyzer] Still missing: {', '.join(missing)}")
-        print("[UnrealProjectAnalyzer] Restart editor after installation.")
+        print(f"[UnrealCopilot] Still missing: {', '.join(missing)}")
+        print("[UnrealCopilot] Restart editor after installation.")
         return False
 
-    print("[UnrealProjectAnalyzer] Auto-sync failed. Run manually:")
+    print("[UnrealCopilot] Auto-sync failed. Run manually:")
     print("  cd Content/Python && uv sync")
     return False
 
 
 if __name__ == "__main__":
     sys.exit(0 if ensure_dependencies() else 1)
+

@@ -1,7 +1,7 @@
 ---
 name: skill_script
 description: 最小脚本示例，展示 main(args) + stdout + result
-tags: [example, script]
+tags: [example, script, hidden]
 ---
 
 # Skill 脚本示例
