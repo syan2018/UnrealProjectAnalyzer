@@ -19,12 +19,12 @@ api = unreal.get_editor_subsystem(unreal.CppSkillApiSubsystem)
 
 ## 可用操作
 
-| 方法 | 描述 |
-|------|------|
-| `RenameAsset` | 重命名/移动资产，自动修复重定向器 |
-| `DuplicateAsset` | 复制资产到新位置 |
-| `DeleteAsset` | 删除资产 |
-| `SaveAsset` | 保存单个资产 |
+| 方法 | C++ 签名 | Python 返回值 |
+|------|----------|---------------|
+| `rename_asset` | `bool RenameAsset(SourcePath, DestPath, OutError)` | `(success: bool, error: str)` |
+| `duplicate_asset` | `bool DuplicateAsset(SourcePath, DestPath, OutError)` | `(success: bool, error: str)` |
+| `delete_asset` | `bool DeleteAsset(AssetPath, OutError)` | `(success: bool, error: str)` |
+| `save_asset` | `bool SaveAsset(AssetPath, OutError)` | `(success: bool, error: str)` |
 
 详细接口和示例见 `docs/overview.md`。
 
@@ -34,15 +34,25 @@ api = unreal.get_editor_subsystem(unreal.CppSkillApiSubsystem)
 import unreal
 api = unreal.get_editor_subsystem(unreal.CppSkillApiSubsystem)
 
-# 重命名资产
-success, error = api.rename_asset("/Game/Old", "/Game/New")
+# 重命名资产 - 路径格式: /Game/Folder/AssetName
+success, error = api.rename_asset(
+    source_path="/Game/OldFolder/MyAsset",
+    dest_path="/Game/NewFolder/RenamedAsset"
+)
 
 # 复制资产
-success, error = api.duplicate_asset("/Game/Original", "/Game/Copy")
+success, error = api.duplicate_asset(
+    source_path="/Game/Original/Asset",
+    dest_path="/Game/Copied/Asset"
+)
 
-# 删除资产
-success, error = api.delete_asset("/Game/ToDelete")
+# 删除资产（警告：不可撤销）
+success, error = api.delete_asset(asset_path="/Game/ToDelete")
 
 # 保存资产
-success, error = api.save_asset("/Game/Modified")
+success, error = api.save_asset(asset_path="/Game/Modified")
+
+# 错误处理
+if not success:
+    unreal.log_error(f"操作失败: {error}")
 ```
