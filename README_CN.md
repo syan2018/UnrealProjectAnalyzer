@@ -11,6 +11,7 @@
 ## 特性
 
 - **蓝图分析**：继承层次、依赖关系、节点图、变量、组件
+- **蓝图编辑（新增）**：变量/图/节点增删改，引脚连线与默认值设置，事务化批处理
 - **资产引用追踪**：查找资产的依赖和被引用关系
 - **C++ 源码分析**：类结构、UPROPERTY/UFUNCTION 检测（基于 tree-sitter）
 - **跨域查询**：跨所有领域追踪完整引用链
@@ -32,6 +33,25 @@
 ## Blueprint 编辑能力规划
 
 - [Blueprint 增删改能力实施规划](Docs/BLUEPRINT_EDITING_PLAN.md)
+
+## 蓝图编辑能力支持
+
+当前已经支持通过 `CppSkillApiSubsystem` + skills 执行蓝图写入：
+
+- **结构级**：变量增删改、默认值设置，图增删改
+- **节点级**：节点增删、引脚连线、引脚默认值
+- **高层节点创建**：按函数路径直接创建函数调用节点
+- **引脚发现**：按 `node_guid` 查询节点引脚清单
+- **结构化执行入口**：`execute_blueprint_operation` / `execute_blueprint_commands`
+- **诊断增强**：失败步骤包含 `graph_name/node_guid/pin_name/failed_index/failed_op`
+
+最小工作流：
+
+1. 创建或加载蓝图。
+2. （可选）新增函数图。
+3. 新增函数调用节点（如 `PrintString`）。
+4. 先查引脚，再按精确引脚名连线。
+5. 编译并保存该蓝图。
 
 ### 历史版本
 
@@ -190,7 +210,9 @@ UnrealCopilot/skills/
 │   └── scripts/
 │       ├── create_blueprint_with_components.py
 │       ├── patch_graph_nodes.py
-│       └── batch_refactor_blueprints.py
+│       ├── batch_refactor_blueprints.py
+│       ├── add_function_call_node.py
+│       └── list_node_pins.py
 ├── cpp_world_api/           # 世界/关卡原语文档
 │   ├── SKILL.md
 │   └── docs/overview.md
@@ -247,10 +269,46 @@ RESULT = {"success": success, "error": error}
 | 分类 | 操作 |
 |------|------|
 | **资产** | `RenameAsset`, `DuplicateAsset`, `DeleteAsset`, `SaveAsset` |
-| **蓝图** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent`, `Add/Remove/RenameBlueprintVariable`, `SetBlueprintVariableDefault`, `Add/Remove/RenameBlueprintGraph`, `Add/RemoveBlueprintNode`, `ConnectBlueprintPins`, `SetBlueprintPinDefault`, `ExecuteBlueprintCommands` |
+| **蓝图** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent`, `Add/Remove/RenameBlueprintVariable`, `SetBlueprintVariableDefault`, `Add/Remove/RenameBlueprintGraph`, `Add/RemoveBlueprintNode`, `AddBlueprintFunctionCallNode`, `ConnectBlueprintPins`, `SetBlueprintPinDefault`, `GetBlueprintNodePins`, `ExecuteBlueprintOperation`, `ExecuteBlueprintCommands` |
 | **世界** | `LoadMap`, `SpawnActorByClassPath`, `FindActorByName`, `DestroyActorByName`, `SetActorPropertyByString`, `SetActorTransformByName` |
 | **编辑器** | `ListDirtyPackages`, `SaveDirtyPackages`, `UndoLastTransaction`, `RedoLastTransaction` |
 | **验证** | `CompileAllBlueprintsSummary` |
+
+### 蓝图编辑示例
+
+```python
+import json
+import unreal
+
+api = unreal.get_editor_subsystem(unreal.CppSkillApiSubsystem)
+bp_path = "/Game/Tests/BP_EditDemo"
+
+# 在 EventGraph 创建可执行函数调用节点
+node_guid, error = api.add_blueprint_function_call_node(
+    blueprint_path=bp_path,
+    graph_name="EventGraph",
+    function_path="/Script/Engine.KismetSystemLibrary.PrintString",
+    node_pos_x=200,
+    node_pos_y=120,
+)
+
+# 连线前先查询引脚
+pins = json.loads(api.get_blueprint_node_pins(bp_path, "EventGraph", node_guid))
+
+# 结构化单操作写入
+report = json.loads(api.execute_blueprint_operation(
+    blueprint_path=bp_path,
+    operation_json=json.dumps({
+        "op": "set_pin_default",
+        "graph_name": "EventGraph",
+        "node_guid": node_guid,
+        "pin_name": "InString",
+        "value_as_string": "Hello from Unreal Copilot",
+    }),
+    auto_compile=True,
+    auto_save=True,
+))
+```
 
 ## 插件设置
 

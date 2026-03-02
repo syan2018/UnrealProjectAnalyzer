@@ -11,6 +11,7 @@ MCP Server for analyzing **and editing** Unreal Engine 5 projects - Blueprint, A
 ## Features
 
 - **Blueprint Analysis**: Hierarchy, dependencies, graph inspection, variables, components
+- **Blueprint Editing (NEW)**: Variables/graphs/nodes add-remove-update, pin linking/defaults, transactional batch operations
 - **Asset Reference Tracking**: Find what uses what, and what is used by what
 - **C++ Source Analysis**: Class structure, UPROPERTY/UFUNCTION detection (tree-sitter based)
 - **Cross-Domain Queries**: Trace complete reference chains across all domains
@@ -32,6 +33,25 @@ MCP Server for analyzing **and editing** Unreal Engine 5 projects - Blueprint, A
 ## Blueprint Editing Plan
 
 - [Blueprint Write Capability Plan](Docs/BLUEPRINT_EDITING_PLAN.md)
+
+## Blueprint Editing Support
+
+Blueprint write support is now available through `CppSkillApiSubsystem` + skills.
+
+- **Structure-level**: add/remove/rename variable, set defaults, add/remove/rename graph
+- **Node-level**: add/remove node, connect pins, set pin default value
+- **High-level node creation**: add function-call nodes by function path
+- **Pin discovery**: query node pins by `node_guid` before connecting
+- **Structured execution**: `execute_blueprint_operation` / `execute_blueprint_commands`
+- **Diagnostics**: failed step includes context (`graph_name`, `node_guid`, `pin_name`, `failed_index`, `failed_op`)
+
+Minimal workflow:
+
+1. Create or load a blueprint.
+2. Add a function graph (optional).
+3. Add function call node (for example `PrintString`).
+4. Query pins and connect by exact pin names.
+5. Compile and save that blueprint.
 
 ### Previous Changes
 
@@ -182,7 +202,9 @@ UnrealCopilot/skills/
 │   └── scripts/
 │       ├── create_blueprint_with_components.py
 │       ├── patch_graph_nodes.py
-│       └── batch_refactor_blueprints.py
+│       ├── batch_refactor_blueprints.py
+│       ├── add_function_call_node.py
+│       └── list_node_pins.py
 ├── cpp_world_api/           # World/Level primitives documentation
 │   ├── SKILL.md
 │   └── docs/overview.md
@@ -239,10 +261,46 @@ RESULT = {"success": success, "error": error}
 | Category | Operations |
 |----------|------------|
 | **Asset** | `RenameAsset`, `DuplicateAsset`, `DeleteAsset`, `SaveAsset` |
-| **Blueprint** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent`, `Add/Remove/RenameBlueprintVariable`, `SetBlueprintVariableDefault`, `Add/Remove/RenameBlueprintGraph`, `Add/RemoveBlueprintNode`, `ConnectBlueprintPins`, `SetBlueprintPinDefault`, `ExecuteBlueprintCommands` |
+| **Blueprint** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent`, `Add/Remove/RenameBlueprintVariable`, `SetBlueprintVariableDefault`, `Add/Remove/RenameBlueprintGraph`, `Add/RemoveBlueprintNode`, `AddBlueprintFunctionCallNode`, `ConnectBlueprintPins`, `SetBlueprintPinDefault`, `GetBlueprintNodePins`, `ExecuteBlueprintOperation`, `ExecuteBlueprintCommands` |
 | **World** | `LoadMap`, `SpawnActorByClassPath`, `FindActorByName`, `DestroyActorByName`, `SetActorPropertyByString`, `SetActorTransformByName` |
 | **Editor** | `ListDirtyPackages`, `SaveDirtyPackages`, `UndoLastTransaction`, `RedoLastTransaction` |
 | **Validation** | `CompileAllBlueprintsSummary` |
+
+### Blueprint Editing Example
+
+```python
+import json
+import unreal
+
+api = unreal.get_editor_subsystem(unreal.CppSkillApiSubsystem)
+bp_path = "/Game/Tests/BP_EditDemo"
+
+# Add a callable function node in EventGraph
+node_guid, error = api.add_blueprint_function_call_node(
+    blueprint_path=bp_path,
+    graph_name="EventGraph",
+    function_path="/Script/Engine.KismetSystemLibrary.PrintString",
+    node_pos_x=200,
+    node_pos_y=120,
+)
+
+# Discover pin names before wiring
+pins = json.loads(api.get_blueprint_node_pins(bp_path, "EventGraph", node_guid))
+
+# Structured single-op write
+report = json.loads(api.execute_blueprint_operation(
+    blueprint_path=bp_path,
+    operation_json=json.dumps({
+        "op": "set_pin_default",
+        "graph_name": "EventGraph",
+        "node_guid": node_guid,
+        "pin_name": "InString",
+        "value_as_string": "Hello from Unreal Copilot",
+    }),
+    auto_compile=True,
+    auto_save=True,
+))
+```
 
 ## Plugin Settings
 
