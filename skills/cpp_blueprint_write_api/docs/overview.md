@@ -22,7 +22,9 @@ api = unreal.get_editor_subsystem(unreal.CppSkillApiSubsystem)
 | `remove_blueprint_node(blueprint_path, graph_name, node_guid)` | `(success: bool, error: str)` |
 | `connect_blueprint_pins(blueprint_path, graph_name, from_node_guid, from_pin_name, to_node_guid, to_pin_name)` | `(success: bool, error: str)` |
 | `set_blueprint_pin_default(blueprint_path, graph_name, node_guid, pin_name, value_as_string)` | `(success: bool, error: str)` |
-| `execute_blueprint_commands(blueprint_path, commands_json, b_auto_compile, b_auto_save)` | `report_json: str` |
+| `execute_blueprint_commands(blueprint_path, commands_json, auto_compile, auto_save)` | `report_json: str` |
+
+> 说明：在当前 UE Python 绑定下，很多 `bool + OutError` 形式接口会只返回 `OutError`（空字符串表示成功）。
 
 ## 变量类型格式 (`variable_type`)
 
@@ -95,8 +97,8 @@ commands = [
 report_json = api.execute_blueprint_commands(
     blueprint_path="/Game/AI/BP_BotController",
     commands_json=json.dumps(commands),
-    b_auto_compile=True,
-    b_auto_save=True,
+    auto_compile=True,
+    auto_save=True,
 )
 report = json.loads(report_json)
 RESULT = report

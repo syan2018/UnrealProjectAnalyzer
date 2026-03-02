@@ -36,8 +36,8 @@ def main(args):
     report_json = api.execute_blueprint_commands(
         blueprint_path=blueprint_path,
         commands_json=commands_json,
-        b_auto_compile=auto_compile,
-        b_auto_save=auto_save,
+        auto_compile=auto_compile,
+        auto_save=auto_save,
     )
 
     try:
