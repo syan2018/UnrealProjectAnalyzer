@@ -21,6 +21,20 @@ def _to_commands_json(args):
     return json.dumps(args.get("commands", []), ensure_ascii=False)
 
 
+def _to_operation_json(args):
+    if "operation_json" in args and args["operation_json"]:
+        if isinstance(args["operation_json"], str):
+            return args["operation_json"]
+        return json.dumps(args["operation_json"], ensure_ascii=False)
+
+    if "operation" in args and args["operation"]:
+        if isinstance(args["operation"], str):
+            return args["operation"]
+        return json.dumps(args["operation"], ensure_ascii=False)
+
+    return ""
+
+
 def main(args):
     api = unreal.get_editor_subsystem(unreal.CppSkillApiSubsystem)
 
@@ -28,6 +42,7 @@ def main(args):
     if not blueprint_paths:
         return {"ok": False, "error": "blueprint_paths is required and must not be empty."}
 
+    operation_json = _to_operation_json(args)
     commands_json = _to_commands_json(args)
     auto_compile = _as_bool(args.get("auto_compile"), True)
     auto_save = _as_bool(args.get("auto_save"), False)
@@ -37,12 +52,20 @@ def main(args):
     failure_count = 0
 
     for blueprint_path in blueprint_paths:
-        report_json = api.execute_blueprint_commands(
-            blueprint_path=blueprint_path,
-            commands_json=commands_json,
-            auto_compile=auto_compile,
-            auto_save=auto_save,
-        )
+        if operation_json:
+            report_json = api.execute_blueprint_operation(
+                blueprint_path=blueprint_path,
+                operation_json=operation_json,
+                auto_compile=auto_compile,
+                auto_save=auto_save,
+            )
+        else:
+            report_json = api.execute_blueprint_commands(
+                blueprint_path=blueprint_path,
+                commands_json=commands_json,
+                auto_compile=auto_compile,
+                auto_save=auto_save,
+            )
 
         try:
             report = json.loads(report_json)

@@ -9,8 +9,41 @@
 #include "EdGraph/EdGraphSchema.h"
 #include "EdGraphSchema_K2.h"
 #include "Engine/Blueprint.h"
+#include "K2Node_CallFunction.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "UObject/NoExportTypes.h"
+
+namespace
+{
+    static FString PinDirectionToText(const EEdGraphPinDirection Direction)
+    {
+        return Direction == EGPD_Input ? TEXT("input") : TEXT("output");
+    }
+
+    static FString BuildPinNameList(UEdGraphNode* Node)
+    {
+        if (!Node)
+        {
+            return TEXT("");
+        }
+
+        TArray<FString> PinNames;
+        for (UEdGraphPin* Pin : Node->Pins)
+        {
+            if (!Pin)
+            {
+                continue;
+            }
+
+            PinNames.Add(FString::Printf(
+                TEXT("%s(%s)"),
+                *Pin->PinName.ToString(),
+                *PinDirectionToText(Pin->Direction)
+            ));
+        }
+        return FString::Join(PinNames, TEXT(", "));
+    }
+}
 
 bool FBlueprintWriteService::EnsureWriteContext(FString& OutError)
 {
@@ -385,6 +418,69 @@ bool FBlueprintWriteService::AddNode(
     return true;
 }
 
+bool FBlueprintWriteService::AddFunctionCallNode(
+    UBlueprint* Blueprint,
+    const FString& GraphName,
+    const FString& FunctionPath,
+    int32 NodePosX,
+    int32 NodePosY,
+    FString& OutNodeGuid,
+    FString& OutError
+)
+{
+    if (!Blueprint)
+    {
+        OutError = TEXT("Blueprint is null.");
+        return false;
+    }
+
+    UEdGraph* Graph = FindGraph(Blueprint, GraphName);
+    if (!Graph)
+    {
+        OutError = FString::Printf(TEXT("Graph not found: %s"), *GraphName);
+        return false;
+    }
+
+    if (FunctionPath.IsEmpty())
+    {
+        OutError = TEXT("FunctionPath is empty.");
+        return false;
+    }
+
+    UFunction* TargetFunction = FindObject<UFunction>(nullptr, *FunctionPath);
+    if (!TargetFunction)
+    {
+        TargetFunction = LoadObject<UFunction>(nullptr, *FunctionPath);
+    }
+    if (!TargetFunction)
+    {
+        OutError = FString::Printf(TEXT("Function not found: %s"), *FunctionPath);
+        return false;
+    }
+
+    Blueprint->Modify();
+    Graph->Modify();
+
+    UK2Node_CallFunction* NewNode = NewObject<UK2Node_CallFunction>(Graph, UK2Node_CallFunction::StaticClass(), NAME_None, RF_Transactional);
+    if (!NewNode)
+    {
+        OutError = TEXT("Failed to create UK2Node_CallFunction.");
+        return false;
+    }
+
+    NewNode->CreateNewGuid();
+    NewNode->SetFromFunction(TargetFunction);
+    NewNode->PostPlacedNewNode();
+    NewNode->AllocateDefaultPins();
+    Graph->AddNode(NewNode, true, false);
+    NewNode->NodePosX = NodePosX;
+    NewNode->NodePosY = NodePosY;
+
+    OutNodeGuid = NewNode->NodeGuid.ToString(EGuidFormats::DigitsWithHyphensLower);
+    FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+    return true;
+}
+
 bool FBlueprintWriteService::RemoveNode(
     UBlueprint* Blueprint,
     const FString& GraphName,
@@ -457,14 +553,26 @@ bool FBlueprintWriteService::ConnectPins(
     UEdGraphPin* FromPin = FindPinByName(FromNode, FromPinName);
     if (!FromPin)
     {
-        OutError = TEXT("From pin not found.");
+        OutError = FString::Printf(
+            TEXT("From pin not found. graph=%s node_guid=%s pin=%s available=[%s]"),
+            *Graph->GetName(),
+            *FromNodeGuid,
+            *FromPinName,
+            *BuildPinNameList(FromNode)
+        );
         return false;
     }
 
     UEdGraphPin* ToPin = FindPinByName(ToNode, ToPinName);
     if (!ToPin)
     {
-        OutError = TEXT("To pin not found.");
+        OutError = FString::Printf(
+            TEXT("To pin not found. graph=%s node_guid=%s pin=%s available=[%s]"),
+            *Graph->GetName(),
+            *ToNodeGuid,
+            *ToPinName,
+            *BuildPinNameList(ToNode)
+        );
         return false;
     }
 
@@ -478,9 +586,18 @@ bool FBlueprintWriteService::ConnectPins(
     Blueprint->Modify();
     Graph->Modify();
 
+    const FPinConnectionResponse ConnectionResponse = Schema->CanCreateConnection(FromPin, ToPin);
     if (!Schema->TryCreateConnection(FromPin, ToPin))
     {
-        OutError = TEXT("Failed to connect pins.");
+        OutError = FString::Printf(
+            TEXT("Failed to connect pins. graph=%s from=%s.%s to=%s.%s reason=%s"),
+            *Graph->GetName(),
+            *FromNodeGuid,
+            *FromPinName,
+            *ToNodeGuid,
+            *ToPinName,
+            *ConnectionResponse.Message.ToString()
+        );
         return false;
     }
 
@@ -519,13 +636,25 @@ bool FBlueprintWriteService::SetPinDefault(
     UEdGraphPin* Pin = FindPinByName(Node, PinName);
     if (!Pin)
     {
-        OutError = TEXT("Pin not found.");
+        OutError = FString::Printf(
+            TEXT("Pin not found. graph=%s node_guid=%s pin=%s available=[%s]"),
+            *Graph->GetName(),
+            *NodeGuid,
+            *PinName,
+            *BuildPinNameList(Node)
+        );
         return false;
     }
 
     if (Pin->Direction != EGPD_Input)
     {
-        OutError = TEXT("Only input pins can set default value.");
+        OutError = FString::Printf(
+            TEXT("Only input pins can set default value. graph=%s node_guid=%s pin=%s direction=%s"),
+            *Graph->GetName(),
+            *NodeGuid,
+            *PinName,
+            *PinDirectionToText(Pin->Direction)
+        );
         return false;
     }
 
@@ -743,7 +872,7 @@ UEdGraphNode* FBlueprintWriteService::FindNodeByGuid(
     FGuid ParsedGuid;
     if (!FGuid::Parse(NodeGuid, ParsedGuid))
     {
-        OutError = TEXT("NodeGuid format is invalid.");
+        OutError = FString::Printf(TEXT("NodeGuid format is invalid: %s"), *NodeGuid);
         return nullptr;
     }
 
@@ -755,7 +884,8 @@ UEdGraphNode* FBlueprintWriteService::FindNodeByGuid(
         }
     }
 
-    OutError = TEXT("Node not found.");
+    const FString GraphLabel = Graph ? Graph->GetName() : TEXT("<null>");
+    OutError = FString::Printf(TEXT("Node not found. graph=%s node_guid=%s"), *GraphLabel, *NodeGuid);
     return nullptr;
 }
 

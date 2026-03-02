@@ -147,6 +147,17 @@ public:
     );
 
     UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool AddBlueprintFunctionCallNode(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        const FString& FunctionPath,
+        int32 NodePosX,
+        int32 NodePosY,
+        FString& OutNodeGuid,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
     bool RemoveBlueprintNode(
         const FString& BlueprintPath,
         const FString& GraphName,
@@ -181,6 +192,21 @@ public:
         const FString& CommandsJson,
         bool bAutoCompile,
         bool bAutoSave
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    FString ExecuteBlueprintOperation(
+        const FString& BlueprintPath,
+        const FString& OperationJson,
+        bool bAutoCompile,
+        bool bAutoSave
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    FString GetBlueprintNodePins(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        const FString& NodeGuid
     );
 
     // ---------------------------------------------------------------------

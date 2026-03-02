@@ -6,6 +6,9 @@
 
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraph/EdGraphNode.h"
+#include "EdGraph/EdGraphPin.h"
 #include "Editor.h"
 #include "Engine/Blueprint.h"
 #include "ScopedTransaction.h"
@@ -179,6 +182,42 @@ namespace
             GEditor->UndoTransaction();
         }
         return bSuccess;
+    }
+
+    static UEdGraphNode* FindNodeByGuidInGraph(
+        UEdGraph* Graph,
+        const FString& NodeGuid,
+        FString& OutError
+    )
+    {
+        if (!Graph)
+        {
+            OutError = TEXT("Graph is null.");
+            return nullptr;
+        }
+
+        FGuid ParsedGuid;
+        if (!FGuid::Parse(NodeGuid, ParsedGuid))
+        {
+            OutError = FString::Printf(TEXT("NodeGuid format is invalid: %s"), *NodeGuid);
+            return nullptr;
+        }
+
+        for (UEdGraphNode* Node : Graph->Nodes)
+        {
+            if (Node && Node->NodeGuid == ParsedGuid)
+            {
+                return Node;
+            }
+        }
+
+        OutError = FString::Printf(TEXT("Node not found. graph=%s node_guid=%s"), *Graph->GetName(), *NodeGuid);
+        return nullptr;
+    }
+
+    static FString PinDirectionToTextForReport(const EEdGraphPinDirection Direction)
+    {
+        return Direction == EGPD_Input ? TEXT("input") : TEXT("output");
     }
 }
 
@@ -446,6 +485,47 @@ bool UCppSkillApiSubsystem::AddBlueprintNode(
     );
 }
 
+bool UCppSkillApiSubsystem::AddBlueprintFunctionCallNode(
+    const FString& BlueprintPath,
+    const FString& GraphName,
+    const FString& FunctionPath,
+    int32 NodePosX,
+    int32 NodePosY,
+    FString& OutNodeGuid,
+    FString& OutError
+)
+{
+    OutNodeGuid.Empty();
+    if (!FBlueprintWriteService::EnsureWriteContext(OutError))
+    {
+        return false;
+    }
+
+    UBlueprint* Blueprint = LoadBlueprint(BlueprintPath, OutError);
+    if (!Blueprint)
+    {
+        return false;
+    }
+
+    return RunBlueprintWriteTransaction(
+        Blueprint,
+        NSLOCTEXT("UnrealCopilot", "AddBlueprintFunctionCallNode", "Add Blueprint Function Call Node"),
+        [&]()
+        {
+            return FBlueprintWriteService::AddFunctionCallNode(
+                Blueprint,
+                GraphName,
+                FunctionPath,
+                NodePosX,
+                NodePosY,
+                OutNodeGuid,
+                OutError
+            );
+        },
+        OutError
+    );
+}
+
 bool UCppSkillApiSubsystem::RemoveBlueprintNode(
     const FString& BlueprintPath,
     const FString& GraphName,
@@ -553,6 +633,122 @@ bool UCppSkillApiSubsystem::SetBlueprintPinDefault(
     );
 }
 
+FString UCppSkillApiSubsystem::ExecuteBlueprintOperation(
+    const FString& BlueprintPath,
+    const FString& OperationJson,
+    bool bAutoCompile,
+    bool bAutoSave
+)
+{
+    TSharedRef<FJsonObject> Report = MakeShared<FJsonObject>();
+    Report->SetStringField(TEXT("blueprint_path"), BlueprintPath);
+
+    if (OperationJson.IsEmpty())
+    {
+        Report->SetBoolField(TEXT("ok"), false);
+        Report->SetStringField(TEXT("error"), TEXT("OperationJson is empty."));
+        return SerializeJsonObject(Report);
+    }
+
+    TSharedPtr<FJsonValue> RootValue;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(OperationJson);
+    if (!FJsonSerializer::Deserialize(Reader, RootValue) || !RootValue.IsValid())
+    {
+        Report->SetBoolField(TEXT("ok"), false);
+        Report->SetStringField(TEXT("error"), TEXT("Failed to parse OperationJson."));
+        return SerializeJsonObject(Report);
+    }
+
+    FString CommandsJson;
+    if (RootValue->Type == EJson::Object)
+    {
+        TArray<TSharedPtr<FJsonValue>> Commands;
+        Commands.Add(RootValue);
+        TSharedRef<FJsonObject> Wrapper = MakeShared<FJsonObject>();
+        Wrapper->SetArrayField(TEXT("commands"), Commands);
+        CommandsJson = SerializeJsonObject(Wrapper);
+    }
+    else if (RootValue->Type == EJson::Array)
+    {
+        CommandsJson = OperationJson;
+    }
+    else
+    {
+        Report->SetBoolField(TEXT("ok"), false);
+        Report->SetStringField(TEXT("error"), TEXT("OperationJson must be an object or array."));
+        return SerializeJsonObject(Report);
+    }
+
+    return ExecuteBlueprintCommands(BlueprintPath, CommandsJson, bAutoCompile, bAutoSave);
+}
+
+FString UCppSkillApiSubsystem::GetBlueprintNodePins(
+    const FString& BlueprintPath,
+    const FString& GraphName,
+    const FString& NodeGuid
+)
+{
+    TSharedRef<FJsonObject> Report = MakeShared<FJsonObject>();
+    Report->SetStringField(TEXT("blueprint_path"), BlueprintPath);
+    Report->SetStringField(TEXT("graph_name"), GraphName);
+    Report->SetStringField(TEXT("node_guid"), NodeGuid);
+
+    FString Error;
+    UBlueprint* Blueprint = LoadBlueprint(BlueprintPath, Error);
+    if (!Blueprint)
+    {
+        Report->SetBoolField(TEXT("ok"), false);
+        Report->SetStringField(TEXT("error"), Error);
+        return SerializeJsonObject(Report);
+    }
+
+    UEdGraph* Graph = FBlueprintWriteService::FindGraph(Blueprint, GraphName);
+    if (!Graph)
+    {
+        Report->SetBoolField(TEXT("ok"), false);
+        Report->SetStringField(TEXT("error"), FString::Printf(TEXT("Graph not found: %s"), *GraphName));
+        return SerializeJsonObject(Report);
+    }
+
+    UEdGraphNode* Node = FindNodeByGuidInGraph(Graph, NodeGuid, Error);
+    if (!Node)
+    {
+        Report->SetBoolField(TEXT("ok"), false);
+        Report->SetStringField(TEXT("error"), Error);
+        return SerializeJsonObject(Report);
+    }
+
+    TArray<TSharedPtr<FJsonValue>> Pins;
+    Pins.Reserve(Node->Pins.Num());
+    for (UEdGraphPin* Pin : Node->Pins)
+    {
+        if (!Pin)
+        {
+            continue;
+        }
+
+        TSharedRef<FJsonObject> PinObj = MakeShared<FJsonObject>();
+        PinObj->SetStringField(TEXT("name"), Pin->PinName.ToString());
+        PinObj->SetStringField(TEXT("direction"), PinDirectionToTextForReport(Pin->Direction));
+        PinObj->SetStringField(TEXT("category"), Pin->PinType.PinCategory.ToString());
+        PinObj->SetStringField(TEXT("sub_category"), Pin->PinType.PinSubCategory.ToString());
+        PinObj->SetStringField(TEXT("default_value"), Pin->DefaultValue);
+        PinObj->SetNumberField(TEXT("linked_to_count"), Pin->LinkedTo.Num());
+        if (Pin->PinType.PinSubCategoryObject != nullptr)
+        {
+            PinObj->SetStringField(TEXT("sub_category_object"), Pin->PinType.PinSubCategoryObject->GetPathName());
+        }
+        Pins.Add(MakeShared<FJsonValueObject>(PinObj));
+    }
+
+    Report->SetBoolField(TEXT("ok"), true);
+    Report->SetStringField(TEXT("graph"), Graph->GetName());
+    Report->SetStringField(TEXT("node_title"), Node->GetNodeTitle(ENodeTitleType::ListView).ToString());
+    Report->SetArrayField(TEXT("pins"), Pins);
+    Report->SetNumberField(TEXT("pin_count"), Pins.Num());
+    return SerializeJsonObject(Report);
+}
+
 FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
     const FString& BlueprintPath,
     const FString& CommandsJson,
@@ -598,6 +794,8 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
     bool bCompiled = false;
     bool bSaved = false;
     FString FinalError;
+    int32 FailedIndex = INDEX_NONE;
+    FString FailedOp;
 
     {
         FScopedTransaction Transaction(NSLOCTEXT("UnrealCopilot", "ExecuteBlueprintCommands", "Execute Blueprint Commands"));
@@ -633,6 +831,24 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
             {
                 OpLower = Op.TrimStartAndEnd().ToLower();
                 Step->SetStringField(TEXT("op"), OpLower);
+
+                FString ContextGraph;
+                if (TryGetStringFieldAny(CommandObject, { TEXT("graph_name"), TEXT("graph") }, ContextGraph))
+                {
+                    Step->SetStringField(TEXT("graph_name"), ContextGraph);
+                }
+
+                FString ContextNodeGuid;
+                if (TryGetStringFieldAny(CommandObject, { TEXT("node_guid"), TEXT("guid") }, ContextNodeGuid))
+                {
+                    Step->SetStringField(TEXT("node_guid"), ContextNodeGuid);
+                }
+
+                FString ContextPinName;
+                if (TryGetStringFieldAny(CommandObject, { TEXT("pin_name"), TEXT("pin") }, ContextPinName))
+                {
+                    Step->SetStringField(TEXT("pin_name"), ContextPinName);
+                }
 
                 if (OpLower == TEXT("add_variable") || OpLower == TEXT("add_blueprint_variable"))
                 {
@@ -814,6 +1030,44 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
                         }
                     }
                 }
+                else if (OpLower == TEXT("add_call_function_node") || OpLower == TEXT("add_blueprint_function_call_node"))
+                {
+                    FString GraphName = TEXT("EventGraph");
+                    FString FunctionPath;
+                    FString NodeGuid;
+                    int32 NodePosX = 0;
+                    int32 NodePosY = 0;
+
+                    TryGetStringFieldAny(CommandObject, { TEXT("graph_name"), TEXT("graph") }, GraphName);
+                    TryGetIntFieldAny(CommandObject, { TEXT("node_pos_x"), TEXT("x") }, NodePosX);
+                    TryGetIntFieldAny(CommandObject, { TEXT("node_pos_y"), TEXT("y") }, NodePosY);
+
+                    if (!TryGetStringFieldAny(
+                        CommandObject,
+                        { TEXT("function_path"), TEXT("function"), TEXT("target_function") },
+                        FunctionPath
+                    ))
+                    {
+                        StepError = TEXT("Missing function_path.");
+                    }
+                    else
+                    {
+                        bStepSuccess = FBlueprintWriteService::AddFunctionCallNode(
+                            Blueprint,
+                            GraphName,
+                            FunctionPath,
+                            NodePosX,
+                            NodePosY,
+                            NodeGuid,
+                            StepError
+                        );
+                        if (bStepSuccess)
+                        {
+                            Step->SetStringField(TEXT("node_guid"), NodeGuid);
+                            Step->SetStringField(TEXT("function_path"), FunctionPath);
+                        }
+                    }
+                }
                 else if (OpLower == TEXT("remove_node") || OpLower == TEXT("remove_blueprint_node"))
                 {
                     FString GraphName = TEXT("EventGraph");
@@ -858,6 +1112,10 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
                     }
                     else
                     {
+                        Step->SetStringField(TEXT("from_node_guid"), FromNodeGuid);
+                        Step->SetStringField(TEXT("from_pin_name"), FromPinName);
+                        Step->SetStringField(TEXT("to_node_guid"), ToNodeGuid);
+                        Step->SetStringField(TEXT("to_pin_name"), ToPinName);
                         bStepSuccess = FBlueprintWriteService::ConnectPins(
                             Blueprint,
                             GraphName,
@@ -918,6 +1176,8 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
                 bSuccess = false;
                 bMutatingFailure = true;
                 FinalError = StepError;
+                FailedIndex = Index;
+                FailedOp = OpLower;
             }
             StepReports.Add(MakeShared<FJsonValueObject>(Step));
 
@@ -967,6 +1227,14 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
     if (!FinalError.IsEmpty())
     {
         Report->SetStringField(TEXT("error"), FinalError);
+        if (FailedIndex != INDEX_NONE)
+        {
+            Report->SetNumberField(TEXT("failed_index"), FailedIndex);
+        }
+        if (!FailedOp.IsEmpty())
+        {
+            Report->SetStringField(TEXT("failed_op"), FailedOp);
+        }
     }
 
     return SerializeJsonObject(Report);

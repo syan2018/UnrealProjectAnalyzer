@@ -77,6 +77,16 @@ public:
         FString& OutError
     );
 
+    static bool AddFunctionCallNode(
+        UBlueprint* Blueprint,
+        const FString& GraphName,
+        const FString& FunctionPath,
+        int32 NodePosX,
+        int32 NodePosY,
+        FString& OutNodeGuid,
+        FString& OutError
+    );
+
     static bool RemoveNode(
         UBlueprint* Blueprint,
         const FString& GraphName,
