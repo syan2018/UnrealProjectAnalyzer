@@ -29,6 +29,10 @@
 - **事件驱动 MCP 生命周期**：Python→C++ 通知替代不可靠的端口探测
 - **重命名**：`UAnalyzerSubsystem` → `UMcpServerSubsystem`（反映实际用途）
 
+## Blueprint 编辑能力规划
+
+- [Blueprint 增删改能力实施规划](Docs/BLUEPRINT_EDITING_PLAN.md)
+
 ### 历史版本
 
 <details>
@@ -180,6 +184,13 @@ UnrealCopilot/skills/
 ├── cpp_blueprint_api/       # 蓝图原语文档
 │   ├── SKILL.md
 │   └── docs/overview.md
+├── cpp_blueprint_write_api/ # 蓝图写入能力（变量/图/节点/批处理）
+│   ├── SKILL.md
+│   ├── docs/overview.md
+│   └── scripts/
+│       ├── create_blueprint_with_components.py
+│       ├── patch_graph_nodes.py
+│       └── batch_refactor_blueprints.py
 ├── cpp_world_api/           # 世界/关卡原语文档
 │   ├── SKILL.md
 │   └── docs/overview.md
@@ -236,7 +247,7 @@ RESULT = {"success": success, "error": error}
 | 分类 | 操作 |
 |------|------|
 | **资产** | `RenameAsset`, `DuplicateAsset`, `DeleteAsset`, `SaveAsset` |
-| **蓝图** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent` |
+| **蓝图** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent`, `Add/Remove/RenameBlueprintVariable`, `SetBlueprintVariableDefault`, `Add/Remove/RenameBlueprintGraph`, `Add/RemoveBlueprintNode`, `ConnectBlueprintPins`, `SetBlueprintPinDefault`, `ExecuteBlueprintCommands` |
 | **世界** | `LoadMap`, `SpawnActorByClassPath`, `FindActorByName`, `DestroyActorByName`, `SetActorPropertyByString`, `SetActorTransformByName` |
 | **编辑器** | `ListDirtyPackages`, `SaveDirtyPackages`, `UndoLastTransaction`, `RedoLastTransaction` |
 | **验证** | `CompileAllBlueprintsSummary` |

@@ -36,6 +36,127 @@ ScopeType = SearchScope | Literal["project", "engine", "plugin", "all"] | None
 
 
 # ============================================================================
+# Path Resolution Helpers
+# ============================================================================
+
+
+def _resolve_file_path(file_path: str) -> Path:
+    """
+    Resolve a file path by trying multiple base directories.
+
+    Supports:
+    1. Absolute paths (used as-is)
+    2. Relative paths from project root
+    3. Relative paths from project plugins
+    4. Relative paths from configured source paths
+
+    Args:
+        file_path: User-provided file path
+
+    Returns:
+        Resolved Path object that exists
+
+    Raises:
+        FileNotFoundError: If file cannot be found in any location
+    """
+    path = Path(file_path)
+
+    # 1. If it's already an absolute path that exists, use it
+    if path.is_absolute():
+        if path.exists():
+            return path
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    # 2. Try as relative path from current working directory
+    if path.exists():
+        return path.resolve()
+
+    # 3. Try to find project root from multiple sources
+    project_root = None
+
+    # 3a. First try from configured source paths (handles MCP running from engine dir)
+    try:
+        config = get_config()
+        for source_path in config.get_source_paths("project"):
+            source = Path(source_path)
+            # Walk up from Source to find .uproject
+            for parent in [source, *source.parents][:4]:
+                if list(parent.glob("*.uproject")):
+                    project_root = parent
+                    break
+            if project_root:
+                break
+    except Exception:
+        pass
+
+    # 3b. Fallback: try from current working directory
+    if not project_root:
+        cwd = Path.cwd()
+        for parent in [cwd, *cwd.parents][:8]:
+            if list(parent.glob("*.uproject")):
+                project_root = parent
+                break
+
+    if project_root:
+        # 3a. Try from project root directly
+        candidate = project_root / path
+        if candidate.exists():
+            return candidate.resolve()
+
+        # 3b. Try from project Source directory
+        source_dir = project_root / "Source"
+        if source_dir.exists():
+            candidate = source_dir / path
+            if candidate.exists():
+                return candidate.resolve()
+
+        # 3c. Try from project Plugins directory (check all plugins)
+        plugins_dir = project_root / "Plugins"
+        if plugins_dir.exists():
+            for plugin_dir in plugins_dir.iterdir():
+                if not plugin_dir.is_dir():
+                    continue
+                # Try plugin Source directory
+                plugin_source = plugin_dir / "Source"
+                if plugin_source.exists():
+                    candidate = plugin_source / path
+                    if candidate.exists():
+                        return candidate.resolve()
+                # Also try direct path under plugin
+                candidate = plugin_dir / path
+                if candidate.exists():
+                    return candidate.resolve()
+
+    # 4. Try from configured source paths
+    tried_paths = []
+    try:
+        config = get_config()
+        source_paths = config.get_source_paths("all")
+        for source_path in source_paths:
+            candidate = Path(source_path) / path
+            tried_paths.append(str(candidate))
+            if candidate.exists():
+                return candidate.resolve()
+    except Exception as e:
+        tried_paths.append(f"Error: {e}")
+
+    # Nothing worked - raise error with helpful message
+    paths_str = "\n    ".join(tried_paths[:10])  # Show first 10 tried paths
+    if len(tried_paths) > 10:
+        paths_str += f"\n    ... and {len(tried_paths) - 10} more"
+
+    raise FileNotFoundError(
+        f"File not found: {file_path}\n"
+        f"Tried:\n"
+        f"  - Absolute path\n"
+        f"  - Current directory: {Path.cwd()}\n"
+        f"  - Project root: {project_root or 'not found'}\n"
+        f"  - Configured source paths ({len(tried_paths)} paths):\n    {paths_str}\n"
+        f"\nHint: Use an absolute path or ensure the file exists in the project."
+    )
+
+
+# ============================================================================
 # Data Classes
 # ============================================================================
 
@@ -305,9 +426,7 @@ class CppAnalyzer:
         if file_path in self._ast_cache:
             return self._ast_cache[file_path]
 
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+        path = _resolve_file_path(file_path)
 
         content = path.read_text(encoding="utf-8", errors="ignore")
         tree = self._parser.parse(bytes(content, "utf-8"))
@@ -1056,19 +1175,16 @@ class CppAnalyzer:
         Detect Unreal Engine patterns in a file.
 
         Args:
-            file_path: Path to the C++ file
+            file_path: Path to the C++ file (supports relative paths from project/plugins)
 
         Returns:
             Dictionary with detected patterns
         """
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-
+        path = _resolve_file_path(file_path)
         content = path.read_text(encoding="utf-8", errors="ignore")
-        patterns = detect_ue_pattern(content, file_path)
+        patterns = detect_ue_pattern(content, str(path))
 
-        return {"patterns": patterns, "file": file_path}
+        return {"patterns": patterns, "file": str(path)}
 
     async def analyze_file(
         self,
@@ -1103,9 +1219,10 @@ class CppAnalyzer:
             - functions: list[dict] (name, line)
             - ue_patterns: list[dict] (UPROPERTY/UFUNCTION/UCLASS...)
         """
-        path = Path(file_path)
-        if not path.exists():
-            return {"file": str(path), "exists": False, "error": "file_not_found"}
+        try:
+            path = _resolve_file_path(file_path)
+        except FileNotFoundError:
+            return {"file": file_path, "exists": False, "error": "file_not_found"}
 
         try:
             size_bytes = path.stat().st_size

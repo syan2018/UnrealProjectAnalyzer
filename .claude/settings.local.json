@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__unreal-project-analyzer__detect_ue_patterns",
+      "Bash(git add -A)"
+    ]
+  }
+}

@@ -29,6 +29,10 @@ MCP Server for analyzing **and editing** Unreal Engine 5 projects - Blueprint, A
 - **Event-Driven MCP Lifecycle**: Python→C++ notifications replace unreliable port probing
 - **Renamed**: `UAnalyzerSubsystem` → `UMcpServerSubsystem` (reflects actual purpose)
 
+## Blueprint Editing Plan
+
+- [Blueprint Write Capability Plan](Docs/BLUEPRINT_EDITING_PLAN.md)
+
 ### Previous Changes
 
 <details>
@@ -172,6 +176,13 @@ UnrealCopilot/skills/
 ├── cpp_blueprint_api/       # Blueprint primitives documentation
 │   ├── SKILL.md
 │   └── docs/overview.md
+├── cpp_blueprint_write_api/ # Blueprint write operations (variables/graphs/nodes/batch)
+│   ├── SKILL.md
+│   ├── docs/overview.md
+│   └── scripts/
+│       ├── create_blueprint_with_components.py
+│       ├── patch_graph_nodes.py
+│       └── batch_refactor_blueprints.py
 ├── cpp_world_api/           # World/Level primitives documentation
 │   ├── SKILL.md
 │   └── docs/overview.md
@@ -228,7 +239,7 @@ RESULT = {"success": success, "error": error}
 | Category | Operations |
 |----------|------------|
 | **Asset** | `RenameAsset`, `DuplicateAsset`, `DeleteAsset`, `SaveAsset` |
-| **Blueprint** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent` |
+| **Blueprint** | `CreateBlueprint`, `CompileBlueprint`, `SaveBlueprint`, `SetBlueprintCDOPropertyByString`, `AddBlueprintComponent`, `RemoveBlueprintComponent`, `Add/Remove/RenameBlueprintVariable`, `SetBlueprintVariableDefault`, `Add/Remove/RenameBlueprintGraph`, `Add/RemoveBlueprintNode`, `ConnectBlueprintPins`, `SetBlueprintPinDefault`, `ExecuteBlueprintCommands` |
 | **World** | `LoadMap`, `SpawnActorByClassPath`, `FindActorByName`, `DestroyActorByName`, `SetActorPropertyByString`, `SetActorTransformByName` |
 | **Editor** | `ListDirtyPackages`, `SaveDirtyPackages`, `UndoLastTransaction`, `RedoLastTransaction` |
 | **Validation** | `CompileAllBlueprintsSummary` |

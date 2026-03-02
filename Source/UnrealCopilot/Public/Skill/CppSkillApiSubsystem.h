@@ -80,6 +80,109 @@ public:
         FString& OutError
     );
 
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool AddBlueprintVariable(
+        const FString& BlueprintPath,
+        const FName& VariableName,
+        const FString& VariableType,
+        const FString& DefaultValue,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool RemoveBlueprintVariable(
+        const FString& BlueprintPath,
+        const FName& VariableName,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool RenameBlueprintVariable(
+        const FString& BlueprintPath,
+        const FName& OldVariableName,
+        const FName& NewVariableName,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool SetBlueprintVariableDefault(
+        const FString& BlueprintPath,
+        const FName& VariableName,
+        const FString& DefaultValue,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool AddBlueprintGraph(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        const FString& GraphType,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool RemoveBlueprintGraph(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool RenameBlueprintGraph(
+        const FString& BlueprintPath,
+        const FString& OldGraphName,
+        const FString& NewGraphName,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool AddBlueprintNode(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        const FString& NodeClassPath,
+        int32 NodePosX,
+        int32 NodePosY,
+        FString& OutNodeGuid,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool RemoveBlueprintNode(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        const FString& NodeGuid,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool ConnectBlueprintPins(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        const FString& FromNodeGuid,
+        const FString& FromPinName,
+        const FString& ToNodeGuid,
+        const FString& ToPinName,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool SetBlueprintPinDefault(
+        const FString& BlueprintPath,
+        const FString& GraphName,
+        const FString& NodeGuid,
+        const FString& PinName,
+        const FString& ValueAsString,
+        FString& OutError
+    );
+
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    FString ExecuteBlueprintCommands(
+        const FString& BlueprintPath,
+        const FString& CommandsJson,
+        bool bAutoCompile,
+        bool bAutoSave
+    );
+
     // ---------------------------------------------------------------------
     // WorldOps (Editor)
     // ---------------------------------------------------------------------
