@@ -421,6 +421,16 @@ class CppAnalyzer:
     # File Parsing
     # ========================================================================
 
+    _UE_API_MACRO_RE = re.compile(r"\b(class|struct)\s+[A-Z][A-Z0-9_]*_API\s+")
+
+    @classmethod
+    def _preprocess_for_parsing(cls, content: str) -> str:
+        """Strip UE DLL-export macros (e.g. LYRAGAME_API, SYCOMBAT_API) that sit
+        between ``class``/``struct`` and the real type name.  tree-sitter-cpp
+        misidentifies these macros as the class name, breaking hierarchy extraction.
+        Line count is preserved so line numbers stay accurate."""
+        return cls._UE_API_MACRO_RE.sub(r"\1 ", content)
+
     async def _parse_file(self, file_path: str) -> Any:
         """Parse a C++ file and return the AST."""
         if file_path in self._ast_cache:
@@ -429,11 +439,13 @@ class CppAnalyzer:
         path = _resolve_file_path(file_path)
 
         content = path.read_text(encoding="utf-8", errors="ignore")
-        tree = self._parser.parse(bytes(content, "utf-8"))
+        parseable = self._preprocess_for_parsing(content)
+        tree = self._parser.parse(bytes(parseable, "utf-8"))
 
         self._manage_cache(self._ast_cache, file_path, tree)
 
-        # Also extract and cache classes from this file
+        # Pass *original* content for regex-based UE pattern detection (UPROPERTY etc.)
+        # but the tree was built from preprocessed source.
         await self._extract_classes_from_tree(tree, file_path, content)
 
         return tree
