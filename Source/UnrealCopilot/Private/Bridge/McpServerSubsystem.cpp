@@ -117,31 +117,47 @@ void UMcpServerSubsystem::StartMcpServer()
         break;
     }
 
-    // Prepare paths
-    FString CppSourcePath = Settings->CppSourcePath;
-    if (CppSourcePath.IsEmpty())
-    {
-        CppSourcePath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Source"));
-    }
+	// Prepare paths
+	FString CppSourcePath = Settings->CppSourcePath;
+	if (CppSourcePath.IsEmpty())
+	{
+		CppSourcePath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Source"));
+	}
 
-    FString EngineSourcePath = Settings->UnrealEngineSourcePath;
-    if (EngineSourcePath.IsEmpty())
-    {
-        EngineSourcePath = FPaths::EngineSourceDir();
-    }
+	FString EngineSourcePath = Settings->UnrealEngineSourcePath;
+	if (EngineSourcePath.IsEmpty())
+	{
+		EngineSourcePath = FPaths::EngineSourceDir();
+	}
 
-    // Execute Python command to start the server
-    FString PythonCommand = FString::Printf(
-        TEXT("import init_analyzer; init_analyzer.start_analyzer_server("
-             "transport='%s', host='%s', port=%d, path='%s', "
-             "cpp_source_path='%s', unreal_engine_path='%s')"),
-        *TransportStr,
-        *Settings->McpHost,
-        Settings->McpPort,
-        *Settings->McpPath,
-        *CppSourcePath,
-        *EngineSourcePath
-    );
+	// Explicitly provide the project plugins directory so that the Python
+	// auto-detection does not have to rely on CWD (which points to the engine
+	// binaries when running inside the editor).
+	FString ProjectPluginsPath = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(FPaths::ProjectDir(), TEXT("Plugins"))
+	);
+
+	// Set PROJECT_PLUGINS_PATH env var before starting the server so that
+	// config.py can pick it up during initialization.
+	FString PythonSetEnv = FString::Printf(
+		TEXT("import os; os.environ['PROJECT_PLUGINS_PATH'] = r'%s'"),
+		*ProjectPluginsPath
+	);
+
+	IPythonScriptPlugin::Get()->ExecPythonCommand(*PythonSetEnv);
+
+	// Execute Python command to start the server
+	FString PythonCommand = FString::Printf(
+		TEXT("import init_analyzer; init_analyzer.start_analyzer_server("
+			 "transport='%s', host='%s', port=%d, path='%s', "
+			 "cpp_source_path='%s', unreal_engine_path='%s')"),
+		*TransportStr,
+		*Settings->McpHost,
+		Settings->McpPort,
+		*Settings->McpPath,
+		*CppSourcePath,
+		*EngineSourcePath
+	);
 
     UE_LOG(LogMcpServerSubsystem, Log, TEXT("Starting MCP server..."));
     UE_LOG(LogMcpServerSubsystem, Log, TEXT("Transport: %s, Host: %s, Port: %d"),

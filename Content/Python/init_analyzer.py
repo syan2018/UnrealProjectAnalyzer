@@ -406,6 +406,15 @@ def start_analyzer_server(
             os.environ["UNREAL_ENGINE_PATH"] = unreal_engine_path
             unreal.log(f"[UnrealCopilot] Set UNREAL_ENGINE_PATH: {unreal_engine_path}")
 
+        # Reset config singleton so it picks up freshly set env vars
+        # (the initial import may have created Config before these vars existed).
+        try:
+            from unreal_copilot.config import reset_config
+            reset_config()
+            unreal.log("[UnrealCopilot] Config reset to pick up new environment variables")
+        except Exception as e:
+            unreal.log_warning(f"[UnrealCopilot] Failed to reset config: {e}")
+
         # Ensure tools are registered + analyzer initialized from env
         global _tools_registered
         try:

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Configuration management for Unreal Copilot.
 
 Supports four-layer search model:
@@ -87,16 +87,30 @@ def _find_project_root() -> Path | None:
     return None
 
 
-def _auto_detect_project_plugins_paths() -> list[str]:
+_PLUGIN_SCAN_EXCLUDE_PARTS = frozenset({
+    ".venv", "Intermediate", "Binaries", ".git", "node_modules",
+    "Content", ".claude", ".cursor", ".openmcp", "__pycache__",
+    "Saved", "DerivedDataCache",
+})
+
+
+def _auto_detect_project_plugins_paths(project_root: Path | None = None) -> list[str]:
     """
     Auto-detect all plugin Source directories under <Project>/Plugins/.
+
+    Recursively scans to handle nested plugin structures like:
+      Plugins/SyPlugins/SyCombat/Source/
+
+    Args:
+        project_root: Optional project root path. If None, attempts CWD-based detection.
 
     Returns:
         List of paths to plugin Source directories.
     """
     candidates: list[str] = []
 
-    project_root = _find_project_root()
+    if project_root is None:
+        project_root = _find_project_root()
     if not project_root:
         return candidates
 
@@ -104,14 +118,25 @@ def _auto_detect_project_plugins_paths() -> list[str]:
     if not plugins_dir.exists() or not plugins_dir.is_dir():
         return candidates
 
-    # Find all plugin Source directories (Plugins/*/Source/)
     try:
-        for plugin_dir in plugins_dir.iterdir():
-            if not plugin_dir.is_dir():
+        for source_dir in plugins_dir.rglob("Source"):
+            if not source_dir.is_dir():
                 continue
-            source_dir = plugin_dir / "Source"
-            if source_dir.exists() and source_dir.is_dir():
-                candidates.append(str(source_dir.resolve()))
+
+            try:
+                rel = source_dir.relative_to(plugins_dir)
+            except ValueError:
+                continue
+
+            # Skip paths that traverse non-plugin directories (venvs, build artifacts, etc.)
+            if any(part in _PLUGIN_SCAN_EXCLUDE_PARTS for part in rel.parts[:-1]):
+                continue
+
+            # Skip Source directories nested inside another Source directory
+            if "Source" in rel.parts[:-1]:
+                continue
+
+            candidates.append(str(source_dir.resolve()))
     except Exception:
         pass
 
@@ -235,8 +260,14 @@ class Config:
 
         # === Project Source ===
         cpp_source = os.getenv("CPP_SOURCE_PATH")
+        project_root_hint: Path | None = None
         if cpp_source:
             self.add_source_path(cpp_source, source_type=SourceType.PROJECT_SOURCE)
+            # Derive project root from CPP_SOURCE_PATH (typically <Project>/Source).
+            # This is critical when running inside UE Editor where CWD is the engine dir.
+            cpp_path = Path(cpp_source)
+            if cpp_path.name == "Source" and cpp_path.parent.exists():
+                project_root_hint = cpp_path.parent
         elif auto_detect:
             for p in _auto_detect_project_source_paths():
                 self.add_source_path(p, source_type=SourceType.PROJECT_SOURCE, label="auto_project")
@@ -244,21 +275,17 @@ class Config:
         # === Project Plugins ===
         project_plugins = os.getenv("PROJECT_PLUGINS_PATH")
         if project_plugins:
-            # User specified a single plugins root, scan for plugin Source dirs
-            plugins_root = Path(project_plugins)
-            if plugins_root.exists():
-                for plugin_dir in plugins_root.iterdir():
-                    if plugin_dir.is_dir():
-                        source_dir = plugin_dir / "Source"
-                        if source_dir.exists():
-                            self.add_source_path(
-                                str(source_dir), 
-                                source_type=SourceType.PROJECT_PLUGIN,
-                                label=plugin_dir.name
-                            )
+            # User specified a single plugins root — use recursive scanning
+            _root = _auto_detect_project_plugins_paths(
+                project_root=Path(project_plugins).parent
+                if Path(project_plugins).name == "Plugins"
+                else None
+            )
+            for p in _root:
+                plugin_name = Path(p).parent.name
+                self.add_source_path(p, source_type=SourceType.PROJECT_PLUGIN, label=plugin_name)
         elif auto_detect:
-            for p in _auto_detect_project_plugins_paths():
-                # Extract plugin name from path
+            for p in _auto_detect_project_plugins_paths(project_root=project_root_hint):
                 plugin_name = Path(p).parent.name
                 self.add_source_path(p, source_type=SourceType.PROJECT_PLUGIN, label=plugin_name)
 
