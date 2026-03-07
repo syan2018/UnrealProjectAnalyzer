@@ -1,13 +1,16 @@
-﻿// Copyright Unreal Copilot Team. All Rights Reserved.
+// Copyright Unreal Copilot Team. All Rights Reserved.
 
 #include "Skill/CppSkillApiSubsystem.h"
 
+#include "Components/ActorComponent.h"
 #include "Engine/Blueprint.h"
 #include "Engine/SCS_Node.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Misc/PackageName.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UnrealType.h"
 
 bool UCppSkillApiSubsystem::CreateBlueprint(
     const FString& ParentClassPath,
@@ -176,6 +179,152 @@ bool UCppSkillApiSubsystem::RemoveBlueprintComponent(
 
     SCS->RemoveNode(Node);
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+    return true;
+}
+
+// ---------------------------------------------------------------------
+// SCS Component Property Operations
+// ---------------------------------------------------------------------
+
+UActorComponent* UCppSkillApiSubsystem::FindSCSComponentTemplate(
+    UBlueprint* Blueprint,
+    const FName& ComponentName,
+    FString& OutError
+) const
+{
+    if (!Blueprint)
+    {
+        OutError = TEXT("Blueprint is null.");
+        return nullptr;
+    }
+
+    USimpleConstructionScript* SCS = Blueprint->SimpleConstructionScript;
+    if (!SCS)
+    {
+        OutError = TEXT("Blueprint has no SimpleConstructionScript.");
+        return nullptr;
+    }
+
+    USCS_Node* Node = SCS->FindSCSNode(ComponentName);
+    if (!Node)
+    {
+        OutError = FString::Printf(TEXT("SCS component '%s' not found."), *ComponentName.ToString());
+        return nullptr;
+    }
+
+    UActorComponent* Template = Node->ComponentTemplate;
+    if (!Template)
+    {
+        OutError = FString::Printf(TEXT("SCS node '%s' has no ComponentTemplate."), *ComponentName.ToString());
+        return nullptr;
+    }
+
+    return Template;
+}
+
+UActorComponent* UCppSkillApiSubsystem::GetBlueprintComponentTemplate(
+    const FString& BlueprintPath,
+    const FName& ComponentName,
+    FString& OutError
+)
+{
+    UBlueprint* Blueprint = LoadBlueprint(BlueprintPath, OutError);
+    if (!Blueprint)
+    {
+        return nullptr;
+    }
+    return FindSCSComponentTemplate(Blueprint, ComponentName, OutError);
+}
+
+FString UCppSkillApiSubsystem::ListBlueprintComponents(const FString& BlueprintPath)
+{
+    FString Error;
+    UBlueprint* Blueprint = LoadBlueprint(BlueprintPath, Error);
+    if (!Blueprint)
+    {
+        return FString::Printf(TEXT("{\"ok\":false,\"error\":\"%s\"}"), *Error);
+    }
+
+    USimpleConstructionScript* SCS = Blueprint->SimpleConstructionScript;
+    if (!SCS)
+    {
+        return TEXT("{\"ok\":true,\"components\":[]}");
+    }
+
+    TArray<FString> Entries;
+    for (USCS_Node* Node : SCS->GetAllNodes())
+    {
+        if (!Node || !Node->ComponentTemplate) continue;
+        UActorComponent* Tmpl = Node->ComponentTemplate;
+        FString Entry = FString::Printf(
+            TEXT("{\"name\":\"%s\",\"class\":\"%s\"}"),
+            *Tmpl->GetName(),
+            *Tmpl->GetClass()->GetName()
+        );
+        Entries.Add(Entry);
+    }
+
+    return FString::Printf(TEXT("{\"ok\":true,\"components\":[%s]}"), *FString::Join(Entries, TEXT(",")));
+}
+
+bool UCppSkillApiSubsystem::SetBlueprintComponentPropertyByString(
+    const FString& BlueprintPath,
+    const FName& ComponentName,
+    const FName& PropertyName,
+    const FString& ValueAsString,
+    FString& OutError
+)
+{
+    UBlueprint* Blueprint = LoadBlueprint(BlueprintPath, OutError);
+    if (!Blueprint)
+    {
+        return false;
+    }
+
+    UActorComponent* Template = FindSCSComponentTemplate(Blueprint, ComponentName, OutError);
+    if (!Template)
+    {
+        return false;
+    }
+
+    if (!SetObjectPropertyByString(Template, PropertyName, ValueAsString, OutError))
+    {
+        return false;
+    }
+
+    FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+    return true;
+}
+
+bool UCppSkillApiSubsystem::GetBlueprintComponentPropertyByString(
+    const FString& BlueprintPath,
+    const FName& ComponentName,
+    const FName& PropertyName,
+    FString& OutValue,
+    FString& OutError
+)
+{
+    UBlueprint* Blueprint = LoadBlueprint(BlueprintPath, OutError);
+    if (!Blueprint)
+    {
+        return false;
+    }
+
+    UActorComponent* Template = FindSCSComponentTemplate(Blueprint, ComponentName, OutError);
+    if (!Template)
+    {
+        return false;
+    }
+
+    FProperty* Property = FindFProperty<FProperty>(Template->GetClass(), PropertyName);
+    if (!Property)
+    {
+        OutError = FString::Printf(TEXT("Property '%s' not found on component '%s'."), *PropertyName.ToString(), *ComponentName.ToString());
+        return false;
+    }
+
+    const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(Template);
+    Property->ExportText_Direct(OutValue, ValuePtr, ValuePtr, Template, PPF_None);
     return true;
 }
 

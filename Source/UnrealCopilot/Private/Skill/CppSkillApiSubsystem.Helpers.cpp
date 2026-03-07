@@ -1,4 +1,4 @@
-﻿// Copyright Unreal Copilot Team. All Rights Reserved.
+// Copyright Unreal Copilot Team. All Rights Reserved.
 
 #include "Skill/CppSkillApiSubsystem.h"
 
@@ -72,8 +72,10 @@ bool UCppSkillApiSubsystem::SetObjectPropertyByString(
         return false;
     }
 
-    void* ValuePtr = Property->ContainerPtrToValuePtr<void>(Target);
-    if (!Property->ImportText_Direct(*ValueAsString, ValuePtr, Target, PPF_None))
+    // 使用 ImportText_InContainer 而非 ImportText_Direct，
+    // 前者通过 Container 指针寻址属性，对 TMap/TArray/TSet 等容器类型支持更完整
+    const TCHAR* Result = Property->ImportText_InContainer(*ValueAsString, Target, Target, PPF_None);
+    if (!Result)
     {
         OutError = TEXT("Failed to import property value.");
         return false;

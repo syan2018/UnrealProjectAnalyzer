@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "EditorSubsystem.h"
@@ -6,6 +6,7 @@
 #include "CppSkillApiSubsystem.generated.h"
 
 class AActor;
+class UActorComponent;
 class UBlueprint;
 class UWorld;
 
@@ -77,6 +78,38 @@ public:
     bool RemoveBlueprintComponent(
         const FString& BlueprintPath,
         const FName& ComponentName,
+        FString& OutError
+    );
+
+    /** 列举蓝图 SCS 中所有组件（返回 JSON 数组 [{name, class}]） */
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    FString ListBlueprintComponents(const FString& BlueprintPath);
+
+    /** 获取蓝图 SCS 组件模板对象引用，供 Python 直接用 set_editor_property 操作 */
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    UActorComponent* GetBlueprintComponentTemplate(
+        const FString& BlueprintPath,
+        const FName& ComponentName,
+        FString& OutError
+    );
+
+    /** 设置蓝图 SCS 组件模板上的简单属性（通过文本导入，不支持 TMap 等容器） */
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool SetBlueprintComponentPropertyByString(
+        const FString& BlueprintPath,
+        const FName& ComponentName,
+        const FName& PropertyName,
+        const FString& ValueAsString,
+        FString& OutError
+    );
+
+    /** 读取蓝图 SCS 组件模板上的属性（通过文本导出） */
+    UFUNCTION(BlueprintCallable, Category = "UnrealCopilot|Skill|Blueprint")
+    bool GetBlueprintComponentPropertyByString(
+        const FString& BlueprintPath,
+        const FName& ComponentName,
+        const FName& PropertyName,
+        FString& OutValue,
         FString& OutError
     );
 
@@ -272,6 +305,13 @@ private:
         UObject* Target,
         const FName& PropertyName,
         const FString& ValueAsString,
+        FString& OutError
+    ) const;
+
+    /** 按名称查找蓝图 SCS 组件模板 */
+    UActorComponent* FindSCSComponentTemplate(
+        UBlueprint* Blueprint,
+        const FName& ComponentName,
         FString& OutError
     ) const;
 };
