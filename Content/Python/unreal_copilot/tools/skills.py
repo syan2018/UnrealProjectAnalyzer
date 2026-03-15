@@ -24,7 +24,6 @@ def read_unreal_skill(skill_name: str, path: Optional[str] = None) -> Dict[str, 
 
 
 def run_unreal_skill(
-    *,
     skill_name: Optional[str] = None,
     script: Optional[str] = None,
     args: Optional[Dict[str, Any] | str] = None,
@@ -67,4 +66,3 @@ def _normalize_args(args: Optional[Dict[str, Any] | str]) -> Optional[Dict[str, 
             raise ValueError("args must resolve to a dict/object")
         return parsed
     raise ValueError("args must be a dict or JSON object string")
-

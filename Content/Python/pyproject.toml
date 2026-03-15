@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "unreal-copilot"
 version = "0.3.1"
 description = "Unreal Copilot MCP server with skills and analysis for Blueprint/Asset/C++"
@@ -6,7 +6,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = "==3.11.*"
 dependencies = [
-    "fastmcp>=2.0.0",
+    "fastmcp==3.1.1",
     "httpx>=0.27.0",
     "tree-sitter>=0.23.0",
     "tree-sitter-cpp>=0.23.0",
@@ -34,6 +34,4 @@ target-version = "py311"
 select = ["E", "F", "I", "W"]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
 testpaths = ["tests"]
-

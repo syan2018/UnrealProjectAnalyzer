@@ -166,7 +166,7 @@ uv sync
 ### 依赖声明
 
 所有依赖在 `Content/Python/pyproject.toml` 中声明：
-- `fastmcp>=2.0.0`: MCP 框架
+- `fastmcp==3.1.1`: MCP 框架
 - `httpx>=0.27.0`: HTTP 客户端
 - `tree-sitter>=0.23.0`: C++ 代码解析
 - `tree-sitter-cpp>=0.23.0`: C++ 语言支持
@@ -308,7 +308,7 @@ uv sync
 编辑 `Content/Python/pyproject.toml`，添加依赖到 `dependencies` 数组：
 ```toml
 dependencies = [
-    "fastmcp>=2.0.0",
+    "fastmcp==3.1.1",
     "httpx>=0.27.0",
     "tree-sitter>=0.23.0",
     "tree-sitter-cpp>=0.23.0",
