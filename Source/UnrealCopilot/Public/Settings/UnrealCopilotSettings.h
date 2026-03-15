@@ -56,11 +56,12 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer")
 	FString UnrealEngineSourcePath = TEXT("");
 
-	/** UE 插件 HTTP API（MCP Server 会调用回 Editor 内 API） */
-	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer")
+	/** UE 插件内置 HTTP API（供 skill/蓝图/资产桥接调用；不同于对外暴露的 MCP Port） */
+	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer", meta=(ToolTip="Internal UE plugin HTTP API host used by skill/asset/blueprint bridge calls. This is separate from the external MCP host/port."))
 	FString UePluginHost = TEXT("127.0.0.1");
 
-	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer", meta=(ClampMin="1", ClampMax="65535"))
+	/** UE 插件内置 HTTP API 端口（默认 8080；不要与 MCP Port 19840 混淆） */
+	UPROPERTY(EditAnywhere, Config, Category="MCP|Analyzer", meta=(ClampMin="1", ClampMax="65535", ToolTip="Internal UE plugin HTTP API port used by the Python bridge. Default 8080. This is separate from the external MCP Port, which defaults to 19840."))
 	int32 UePluginPort = 8080;
 
 	/** 额外传给 unreal-analyzer 的参数（高级） */
@@ -83,6 +84,5 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category="MCP|Launcher")
 	bool bCaptureServerOutput = false;
 };
-
 
 

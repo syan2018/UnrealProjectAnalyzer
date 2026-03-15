@@ -60,6 +60,58 @@ _cpp_notify_queue: list[tuple[str, tuple]] = []
 _cpp_notify_tick_handle = None
 
 
+def _is_expected_disconnect_error(exc: BaseException | None) -> bool:
+    """Return True for noisy transport cleanup errors caused by client disconnects."""
+    if exc is None:
+        return False
+
+    if isinstance(exc, (BrokenPipeError, ConnectionAbortedError, ConnectionResetError)):
+        return True
+
+    if isinstance(exc, OSError):
+        if getattr(exc, "winerror", None) in {10053, 10054}:
+            return True
+        if getattr(exc, "errno", None) in {32, 54, 104}:
+            return True
+
+    return False
+
+
+def _is_expected_disconnect_context(context: dict) -> bool:
+    """Best-effort detection for asyncio transport shutdown noise on Windows."""
+    exc = context.get("exception")
+    if _is_expected_disconnect_error(exc):
+        return True
+
+    message = str(context.get("message") or "").lower()
+    handle = str(context.get("handle") or "").lower()
+
+    return "_call_connection_lost" in handle and (
+        "connection lost" in message or "exception in callback" in message
+    )
+
+
+def _install_asyncio_exception_handler(loop: asyncio.AbstractEventLoop) -> None:
+    """Suppress expected disconnect cleanup tracebacks while preserving real failures."""
+    default_handler = loop.get_exception_handler()
+
+    def _handle_exception(active_loop, context):
+        if _is_expected_disconnect_context(context):
+            exc = context.get("exception")
+            detail = f": {exc}" if exc else ""
+            unreal.log_warning(
+                f"[UnrealCopilot] Ignoring expected client disconnect during shutdown{detail}"
+            )
+            return
+
+        if default_handler is not None:
+            default_handler(active_loop, context)
+        else:
+            active_loop.default_exception_handler(context)
+
+    loop.set_exception_handler(_handle_exception)
+
+
 def _get_transport_enum(transport: str):
     """
     Best-effort mapping from transport string to UE enum.
@@ -489,7 +541,28 @@ def start_analyzer_server(
                         loop = asyncio.new_event_loop()
                         _analyzer_uvicorn_loop = loop
                         asyncio.set_event_loop(loop)
-                        loop.run_until_complete(_serve_with_watch())
+                        _install_asyncio_exception_handler(loop)
+                        try:
+                            loop.run_until_complete(_serve_with_watch())
+                        finally:
+                            try:
+                                pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
+                                for task in pending:
+                                    task.cancel()
+                                if pending:
+                                    loop.run_until_complete(
+                                        asyncio.gather(*pending, return_exceptions=True)
+                                    )
+                            except Exception:
+                                pass
+
+                            try:
+                                loop.run_until_complete(loop.shutdown_asyncgens())
+                            except Exception:
+                                pass
+
+                            asyncio.set_event_loop(None)
+                            loop.close()
                     except Exception as e:
                         # No fallback here: if custom ASGI/uvicorn setup fails, state reporting
                         # would be unreliable. Fail fast and let outer handler report errors.
@@ -684,5 +757,3 @@ if __name__ != "__main__":
             unreal.log_error("[UnrealCopilot] Failed to initialize analyzer")
     else:
         unreal.log_error("[UnrealCopilot] Skipping bridge setup due to missing dependencies")
-
-

@@ -62,7 +62,7 @@ private:
     bool TickMcpStartPoll(float DeltaTime);
 
 private:
-    /** HTTP server port */
+    /** Internal UE plugin HTTP API port (separate from the external MCP port). */
     int32 HttpPort = 8080;
 
     /** HTTP router handle */
@@ -74,5 +74,4 @@ private:
     /** Deadline for MCP startup polling */
     double McpStartPollDeadlineSeconds = 0.0;
 };
-
 

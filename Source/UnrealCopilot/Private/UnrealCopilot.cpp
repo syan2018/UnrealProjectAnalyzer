@@ -68,12 +68,15 @@ bool FUnrealCopilotModule::IsAvailable()
 
 void FUnrealCopilotModule::InitializeHttpServer()
 {
+    const UUnrealCopilotSettings* Settings = GetDefault<UUnrealCopilotSettings>();
+    if (Settings && Settings->UePluginPort > 0)
+    {
+        HttpPort = Settings->UePluginPort;
+    }
+
     // Get HTTP server module
     FHttpServerModule& HttpServerModule = FHttpServerModule::Get();
-    
-    // Start listeners on specified port
-    HttpServerModule.StartAllListeners();
-    
+
     // Get router for our port
     HttpRouter = HttpServerModule.GetHttpRouter(HttpPort);
     
@@ -81,7 +84,12 @@ void FUnrealCopilotModule::InitializeHttpServer()
     {
         // Register all routes
         RegisterRoutes(HttpRouter);
-        UE_LOG(LogTemp, Log, TEXT("UnrealCopilot: HTTP server initialized on port %d"), HttpPort);
+        HttpServerModule.StartAllListeners();
+
+        const FString Host = (Settings && !Settings->UePluginHost.IsEmpty())
+            ? Settings->UePluginHost
+            : TEXT("127.0.0.1");
+        UE_LOG(LogTemp, Log, TEXT("UnrealCopilot: HTTP server initialized at http://%s:%d"), *Host, HttpPort);
     }
     else
     {
@@ -421,5 +429,4 @@ bool FUnrealCopilotModule::TickMcpStartPoll(float DeltaTime)
 #undef LOCTEXT_NAMESPACE
     
 IMPLEMENT_MODULE(FUnrealCopilotModule, UnrealCopilot)
-
 

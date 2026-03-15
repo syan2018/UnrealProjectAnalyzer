@@ -139,9 +139,23 @@ void UMcpServerSubsystem::StartMcpServer()
 
 	// Set PROJECT_PLUGINS_PATH env var before starting the server so that
 	// config.py can pick it up during initialization.
+	const FString UePluginHost = Settings->UePluginHost.IsEmpty()
+		? TEXT("127.0.0.1")
+		: Settings->UePluginHost;
+	const int32 UePluginPort = Settings->UePluginPort > 0
+		? Settings->UePluginPort
+		: 8080;
+
 	FString PythonSetEnv = FString::Printf(
-		TEXT("import os; os.environ['PROJECT_PLUGINS_PATH'] = r'%s'"),
-		*ProjectPluginsPath
+		TEXT(
+			"import os; "
+			"os.environ['PROJECT_PLUGINS_PATH'] = r'%s'; "
+			"os.environ['UE_PLUGIN_HOST'] = r'%s'; "
+			"os.environ['UE_PLUGIN_PORT'] = r'%d'"
+		),
+		*ProjectPluginsPath,
+		*UePluginHost,
+		UePluginPort
 	);
 
 	IPythonScriptPlugin::Get()->ExecPythonCommand(*PythonSetEnv);
@@ -271,14 +285,53 @@ void UMcpServerSubsystem::InitializePythonBridge()
         }
     }
 
-    // Add the Content/Python directory to sys.path
-    FString PythonInitScript = FPaths::Combine(PluginDir, TEXT("Content/Python"));
+	// Add the Content/Python directory to sys.path
+	FString PythonInitScript = FPaths::Combine(PluginDir, TEXT("Content/Python"));
 
-    // Execute the initialization script
-    FString PythonCommand = FString::Printf(
-        TEXT("import sys; sys.path.insert(0, r'%s'); import init_analyzer"),
-        *PythonInitScript
-    );
+	const UUnrealCopilotSettings* Settings = GetDefault<UUnrealCopilotSettings>();
+	FString CppSourcePath = Settings ? Settings->CppSourcePath : FString();
+	if (CppSourcePath.IsEmpty())
+	{
+		CppSourcePath = FPaths::Combine(FPaths::ProjectDir(), TEXT("Source"));
+	}
+	CppSourcePath = FPaths::ConvertRelativePathToFull(CppSourcePath);
+
+	FString EngineSourcePath = Settings ? Settings->UnrealEngineSourcePath : FString();
+	if (EngineSourcePath.IsEmpty())
+	{
+		EngineSourcePath = FPaths::EngineSourceDir();
+	}
+	EngineSourcePath = FPaths::ConvertRelativePathToFull(EngineSourcePath);
+
+	const FString ProjectPluginsPath = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(FPaths::ProjectDir(), TEXT("Plugins"))
+	);
+	const FString UePluginHost = (Settings && !Settings->UePluginHost.IsEmpty())
+		? Settings->UePluginHost
+		: TEXT("127.0.0.1");
+	const int32 UePluginPort = (Settings && Settings->UePluginPort > 0)
+		? Settings->UePluginPort
+		: 8080;
+
+	// Execute the initialization script
+	FString PythonCommand = FString::Printf(
+		TEXT(
+			"import os, sys; "
+			"os.environ['PROJECT_PLUGINS_PATH'] = r'%s'; "
+			"os.environ['CPP_SOURCE_PATH'] = r'%s'; "
+			"os.environ['UNREAL_ENGINE_PATH'] = r'%s'; "
+			"os.environ['UE_PLUGIN_HOST'] = r'%s'; "
+			"os.environ['UE_PLUGIN_PORT'] = r'%d'; "
+			"sys.path.insert(0, r'%s'); "
+			"import init_analyzer"
+		),
+		*ProjectPluginsPath,
+		*CppSourcePath,
+		*EngineSourcePath,
+		*UePluginHost,
+		UePluginPort,
+		*PythonInitScript
+	);
 
     IPythonScriptPlugin::Get()->ExecPythonCommand(*PythonCommand);
 
