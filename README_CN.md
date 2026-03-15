@@ -113,6 +113,7 @@ which uv
 
 注意：
 
+- `unreal-mcphub.exe` 现在是通过 Rust library 直接链接 MCPHub；附带的 `mcphub.exe` 只是保留给想使用原始通用 MCPHub CLI 的用户，不再是 `unreal-mcphub.exe` 的运行前置依赖。
 - 推荐在 `Project Settings -> Plugins -> Unreal Copilot` 中开启 `Auto Start MCP Server`。
 - 如果没有开启自动启动，UnrealMCPHub 仍然可以把 Editor 拉起来，但 MCP endpoint 可能会一直离线，直到你在编辑器里手动启动它。
 - 如果你不想使用 UnrealMCPHub，也仍然可以继续使用下面的编辑器内直连流程。

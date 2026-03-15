@@ -105,6 +105,7 @@ A ready-to-run Windows build is bundled in this plugin:
 
 Important:
 
+- `unreal-mcphub.exe` links MCPHub directly as a Rust library; the bundled `mcphub.exe` is kept as an optional raw MCPHub CLI for users who want the original generic workflow.
 - We recommend enabling `Auto Start MCP Server` in `Project Settings -> Plugins -> Unreal Copilot`.
 - If auto-start is disabled, UnrealMCPHub can still launch the editor, but the MCP endpoint may stay offline until you start it manually inside the editor.
 - If you prefer not to use UnrealMCPHub, the direct in-editor flow below still works.
