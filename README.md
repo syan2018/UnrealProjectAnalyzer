@@ -11,24 +11,14 @@ MCP Server for analyzing **and editing** Unreal Engine 5 projects - Blueprint, A
 ## Features
 
 - **Blueprint Analysis**: Hierarchy, dependencies, graph inspection, variables, components
-- **Blueprint Editing (NEW)**: Variables/graphs/nodes add-remove-update, pin linking/defaults, transactional batch operations
+- **Blueprint Editing**: Variables/graphs/nodes add-remove-update, pin linking/defaults, transactional batch operations
 - **Asset Reference Tracking**: Find what uses what, and what is used by what
 - **C++ Source Analysis**: Class structure, UPROPERTY/UFUNCTION detection (tree-sitter based)
 - **Cross-Domain Queries**: Trace complete reference chains across all domains
 - **Editor Integration**: Start/Stop MCP Server directly from Unreal Editor menu
 - **Scope Control**: Search project-only, engine-only, or both
 - **Unified Search**: grep-like interface across all domains
-- **🆕 Skill System (v0.4.0)**: Discoverable, readable, executable editor capabilities
-
-## What's New in v0.4.0
-
-- **Skill System**: 3 new MCP tools for discovering and executing editor capabilities
-  - `list_unreal_skill` - Discover available skills
-  - `read_unreal_skill` - Read skill documentation and scripts
-  - `run_unreal_skill` - Execute skill scripts or inline Python
-- **CppSkillApiSubsystem**: C++ editor primitives (Asset/Blueprint/World/Editor/Validation)
-- **Event-Driven MCP Lifecycle**: Python→C++ notifications replace unreliable port probing
-- **Renamed**: `UAnalyzerSubsystem` → `UMcpServerSubsystem` (reflects actual purpose)
+- **Skill System**: Discoverable, readable, executable editor capabilities
 
 ## Blueprint Editing Plan
 
@@ -52,19 +42,6 @@ Minimal workflow:
 3. Add function call node (for example `PrintString`).
 4. Query pins and connect by exact pin names.
 5. Compile and save that blueprint.
-
-### Previous Changes
-
-<details>
-<summary>v0.3.x</summary>
-
-- **Further Simplified**: Reduced to **8 tools** (4 unified + 4 specialized)
-- **Minimal Parameters**: Removed redundant parameters for lower cognitive load
-- **Soft Reference Tracking**: Blueprint CDO variable defaults now included in reference chains
-- **Mermaid Output**: `get_blueprint_graph` defaults to Mermaid format for easy visualization
-- **C++ Reference Aggregation**: Groups results by file, distinguishes definition vs usage
-
-</details>
 
 ## Quick Start (Recommended)
 
