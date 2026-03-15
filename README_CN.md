@@ -72,6 +72,11 @@ YourProject/
 │       ├── Source/
 │       ├── Content/
 │       ├── skills/       ← 技能定义
+│       ├── Tools/
+│       │   └── UnrealMCPHub/
+│       │       └── Win64/
+│       │           ├── unreal-mcphub.exe
+│       │           └── mcphub.exe
 │       └── UnrealCopilot.uplugin
 ```
 
@@ -91,6 +96,26 @@ Get-Command uv | Select-Object -ExpandProperty Source
 # macOS/Linux
 which uv
 ```
+
+### 2.5 推荐：在 Windows 上搭配 UnrealMCPHub 使用
+
+[UnrealMCPHub](https://github.com/syan2018/UnrealMCPHub) 是构建在 MCPHub 之上的、面向 Unreal 项目的轻量封装。
+它可以自动绑定当前 `.uproject`、启动或复用正确的 Unreal Editor、把当前 MCP endpoint 同步进 MCPHub，
+并显示当前项目的实时状态。
+
+当前插件内已经直接附带可用的 Windows 预编译版：
+
+```powershell
+.\Tools\UnrealMCPHub\Win64\unreal-mcphub.exe setup
+.\Tools\UnrealMCPHub\Win64\unreal-mcphub.exe launch --wait-seconds 30
+.\Tools\UnrealMCPHub\Win64\unreal-mcphub.exe sync-mcphub
+```
+
+注意：
+
+- 推荐在 `Project Settings -> Plugins -> Unreal Copilot` 中开启 `Auto Start MCP Server`。
+- 如果没有开启自动启动，UnrealMCPHub 仍然可以把 Editor 拉起来，但 MCP endpoint 可能会一直离线，直到你在编辑器里手动启动它。
+- 如果你不想使用 UnrealMCPHub，也仍然可以继续使用下面的编辑器内直连流程。
 
 ### 3. 启动 MCP 服务器
 
@@ -377,7 +402,7 @@ curl http://localhost:8080/health
   "ok": true,
   "status": "running",
   "plugin": "UnrealCopilot",
-  "version": "0.4.0",
+  "version": "0.3.1",
   "ue_version": "5.3.2-xxx",
   "project_name": "LyraStarterGame"
 }

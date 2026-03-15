@@ -73,6 +73,11 @@ YourProject/
 │       ├── Source/
 │       ├── Content/
 │       ├── skills/       ← skill definitions
+│       ├── Tools/
+│       │   └── UnrealMCPHub/
+│       │       └── Win64/
+│       │           ├── unreal-mcphub.exe
+│       │           └── mcphub.exe
 │       └── UnrealCopilot.uplugin
 ```
 
@@ -83,6 +88,26 @@ YourProject/
 3. Set **Uv Executable** to your uv installation path, e.g.:
    - Windows: `C:\Users\YourName\.local\bin\uv.exe` or `C:\Users\YourName\anaconda3\Scripts\uv.exe`
    - macOS/Linux: `/usr/local/bin/uv` or `~/.local/bin/uv`
+
+### 2.5 Recommended: pair it with UnrealMCPHub on Windows
+
+[UnrealMCPHub](https://github.com/syan2018/UnrealMCPHub) is a project-aware wrapper around MCPHub.
+It can bind the current `.uproject`, launch or reuse the correct editor instance, sync the active
+endpoint into MCPHub, and surface live status for the current project.
+
+A ready-to-run Windows build is bundled in this plugin:
+
+```powershell
+.\Tools\UnrealMCPHub\Win64\unreal-mcphub.exe setup
+.\Tools\UnrealMCPHub\Win64\unreal-mcphub.exe launch --wait-seconds 30
+.\Tools\UnrealMCPHub\Win64\unreal-mcphub.exe sync-mcphub
+```
+
+Important:
+
+- We recommend enabling `Auto Start MCP Server` in `Project Settings -> Plugins -> Unreal Copilot`.
+- If auto-start is disabled, UnrealMCPHub can still launch the editor, but the MCP endpoint may stay offline until you start it manually inside the editor.
+- If you prefer not to use UnrealMCPHub, the direct in-editor flow below still works.
 
 ### 3. Start MCP Server
 
@@ -369,7 +394,7 @@ Response:
   "ok": true,
   "status": "running",
   "plugin": "UnrealCopilot",
-  "version": "0.4.0",
+  "version": "0.3.1",
   "ue_version": "5.3.2-xxx",
   "project_name": "LyraStarterGame"
 }
