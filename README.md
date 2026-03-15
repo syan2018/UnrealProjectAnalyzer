@@ -150,7 +150,7 @@ Add to your Cursor MCP settings (use the copied URL):
 ┌──────────────────────────────────────────────────────────────────┐
 │              UnrealCopilot Plugin (Editor)                       │
 │  ┌─────────────────────────┐  ┌────────────────────────────────┐ │
-│  │   HTTP Server (:8080)   │  │   CppSkillApiSubsystem         │ │
+│  │ Plugin HTTP API (:8080) │  │   CppSkillApiSubsystem         │ │
 │  │   Blueprint/Asset API   │  │   (Asset/BP/World/Editor ops)  │ │
 │  └─────────────────────────┘  └────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
@@ -158,6 +158,12 @@ Add to your Cursor MCP settings (use the copied URL):
 │  └─────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+Port model:
+
+- `MCP Port` defaults to `19840` and is the external MCP endpoint that Cursor/Codex connects to.
+- `UE Plugin Port` defaults to `8080` and is the internal HTTP bridge used by the Python MCP server to call back into the plugin for Blueprint/asset/editor operations.
+- These two ports are intentionally different; using the same port would make the two in-editor servers conflict.
 
 ## Available Tools (11 total)
 
@@ -310,6 +316,8 @@ report = json.loads(api.execute_blueprint_operation(
 | `Uv Executable` | Path to uv binary | `uv` |
 | `Transport` | MCP transport mode | `http` |
 | `MCP Port` | HTTP/SSE listen port | `19840` |
+| `UE Plugin Host` | Internal plugin bridge host for skill/API callbacks | `127.0.0.1` |
+| `UE Plugin Port` | Internal plugin bridge port for skill/API callbacks | `8080` |
 | `Cpp Source Path` | Project C++ source root | Auto-detect |
 | `Unreal Engine Source Path` | Engine source for analysis | Auto-detect |
 
@@ -372,7 +380,7 @@ RESULT = {"renamed": renamed}
 
 ## Health Check
 
-Verify UE plugin is running:
+Verify the internal UE plugin HTTP bridge is running:
 
 ```bash
 curl http://localhost:8080/health

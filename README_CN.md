@@ -158,7 +158,7 @@ which uv
 ┌──────────────────────────────────────────────────────────────────┐
 │              UnrealCopilot 插件 (Editor 内运行)                   │
 │  ┌─────────────────────────┐  ┌────────────────────────────────┐ │
-│  │   HTTP Server (:8080)   │  │   CppSkillApiSubsystem         │ │
+│  │ Plugin HTTP API (:8080) │  │   CppSkillApiSubsystem         │ │
 │  │   蓝图/资产 API          │  │   (资产/蓝图/世界/编辑器操作)    │ │
 │  └─────────────────────────┘  └────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
@@ -166,6 +166,12 @@ which uv
 │  └─────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+端口模型：
+
+- `MCP Port` 默认是 `19840`，这是给 Cursor/Codex 之类 MCP 客户端连接的外部端口。
+- `UE Plugin Port` 默认是 `8080`，这是 UE 内部 Python MCP 服务回调插件 HTTP API 时使用的内部桥接端口。
+- 这两个端口故意分离；如果配成同一个端口，Editor 内会发生服务监听冲突。
 
 ## 可用工具（共 11 个）
 
@@ -318,6 +324,8 @@ report = json.loads(api.execute_blueprint_operation(
 | `Uv Executable` | uv 可执行文件路径 | `uv` |
 | `Transport` | MCP 传输模式 | `http` |
 | `MCP Port` | HTTP/SSE 监听端口 | `19840` |
+| `UE Plugin Host` | skill/API 回调使用的内部插件桥接 Host | `127.0.0.1` |
+| `UE Plugin Port` | skill/API 回调使用的内部插件桥接端口 | `8080` |
 | `Cpp Source Path` | 项目 C++ 源码根目录 | 自动检测 |
 | `Unreal Engine Source Path` | 引擎源码路径（用于分析引擎类） | 自动检测 |
 
@@ -380,7 +388,7 @@ RESULT = {"renamed": renamed}
 
 ## 健康检查
 
-验证 UE 插件是否运行：
+验证 UE 内部插件桥接 HTTP API 是否运行：
 
 ```bash
 curl http://localhost:8080/health
@@ -403,7 +411,7 @@ curl http://localhost:8080/health
 ### MCP 服务器启动失败
 
 1. **检查 uv 路径**：确保在设置中填写了正确的 uv 完整路径
-2. **检查端口冲突**：默认端口 19840，如有冲突可在设置中修改
+2. **检查端口冲突**：默认会同时用到 `19840`（MCP）和 `8080`（内部插件桥接），如有冲突可在设置中分别修改
 3. **查看日志**：Output Log 中搜索 `LogMcpServerSubsystem` 查看详细错误
 
 ### 连接 Cursor 失败
